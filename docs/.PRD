@@ -1,0 +1,135 @@
+# PRD.md — Ozzie Quran App (MVP)
+
+## 0) What this is
+Ozzie is a kid-focused Quran learning app that teaches recitation through a structured loop:
+Surah → Ayah learning → Recitation attempts + feedback → Mini quizzes → Final exam → Rewards + progress tracking.
+
+The project MUST be “real” end-to-end:
+- real auth
+- real database writes
+- real rules enforcement
+- real audio uploads
+- real scoring responses (even if scoring is v1 simple)
+
+## 1) Users & roles
+### Parent (account owner)
+- Sign up/sign in via email (Supabase Auth)
+- Set/enter parental gate PIN
+- Create/manage multiple child profiles
+- View child progress dashboards
+- Configure child settings (limits, notifications, etc.)
+
+### Child (app user)
+- Enters child mode after parental gate + child selection
+- Uses learning loop to master ayahs and surahs
+- Receives rewards (Hasanat, badges) and sees progress
+
+## 2) MVP goals
+- A parent can create/select a child and start a learning session.
+- A child can complete the ayah learning loop with real audio submission and a scored result.
+- The app enforces learning constraints (attempt budgets, passes required, quiz gating).
+- Mini quizzes and final exam are triggered in the agreed order.
+- Progress dashboards show streak/time/score and attempt logs.
+
+## 3) Non-goals (MVP)
+- Perfect tajweed/makhraj grading (can be v2/v3)
+- Fully polished animations/mascot interactions
+- Deep analytics beyond core dashboards
+- A clean “production-grade” Figma file (we use it as reference, not source of truth)
+
+## 4) Core learning model (3 layers)
+This is the single most important conceptual alignment.
+
+### A) Attempt layer (micro: per submission)
+Definition: An attempt is one recorded recitation submission for a specific ayah.
+
+Hard constraints (server-enforced):
+- Max attempts per day: 6
+- Real-time detailed feedback attempts per day: 3
+- Intervention after consecutive failures: after 2 consecutive fails, force a “Learn” intervention before allowing further tries (replay audio / show hints / re-read).
+
+Optional experiment:
+- Blur verse text on 3rd attempt (A/B), to compare “blurry vs clear”.
+
+### B) Ayah mastery layer (meso: mastery requirement)
+Definition: An ayah is “mastered” only after PASS is achieved at least 3 times (cumulative).
+
+Rules:
+- passesRequired = 3
+- Passing score threshold is configurable (benchmark-dependent).
+- Pass count persists across days.
+- Daily attempt count resets daily.
+
+UX implication:
+- After first pass, show “2 more tries” (meaning 2 more passing attempts required).
+
+### C) Surah progression layer (macro: Learn → Mini Quiz → Final Exam)
+Curriculum is divided into 3 parts:
+1) Learn (ayah mastery loop)
+2) Mini Quiz (“pop quiz”)
+3) Final Exam
+
+Agreed quiz order:
+- After 2 verses → Mini Quiz #1
+- Total 2 mini quizzes → then Final Exam
+
+Suggested mapping (example for 7-ayah surah):
+- Learn 1–2 → Mini Quiz 1 (covers 1–2)
+- Learn 3–4 → Mini Quiz 2 (covers 3–4)
+- Learn 5–7 → Final Exam (covers 1–7)
+
+## 5) Core app flows (MVP)
+### Parent onboarding flow
+1) Splash / Onboarding (optional)
+2) Sign up / Sign in (email)
+3) Verify email success
+4) Set PIN (first time) / Enter PIN (returning)
+5) Select child (if >1 child)
+6) Add child (if none)
+
+Edge case:
+- If parent has exactly one child, skip child selection after PIN.
+
+### Child learning flow (golden path)
+1) Child Home (journey/path UI)
+2) Select Surah → Surah Overview
+3) Start Ayah flow
+4) Learn step (illustration + verse/meaning + listen)
+5) Recite step (record → review → submit)
+6) Feedback (success/fail; may show attempts remaining)
+7) Continue loop until mastery/gate:
+   - Mini Quiz after ayah 2 and 4
+   - Final Exam after mini quiz 2 and remaining ayahs learned
+
+### Progress & dashboards
+Child:
+- Streak calendar
+- Recite time / sessions
+- Score trends + activity log
+
+Parent:
+- Per-child summary + controls + settings
+
+## 6) UI/UX directives (must-follow)
+- Illustrations must be large and comfortably viewable; reserve a stable illustration slot on learning screens.
+- Do NOT show a heavy “stats top bar” at early quiz stages (keep UI focused).
+- Pathway visualization does not need galaxy everywhere; can be simplified (circles / creative abstractions).
+- Keep quiz order exactly as agreed (no rearranging).
+- The design files are messy; treat the design system reference + screenshots as guidance, not a generator.
+
+## 7) Definition of done (MVP)
+- Supabase auth working (real)
+- Parent PIN gate + child CRUD working (real)
+- Surah/Ayah content displayed (real source; cached OK)
+- Audio recording, upload, scoring, and attempt logging working (real)
+- Server-enforced rules:
+  - daily attempts cap (6)
+  - realtime feedback cap (3)
+  - passes required (3)
+  - mini quiz gating order
+- Progress dashboards populated from real DB data
+
+## 8) Project references
+- Figma file (messy screens + notes): https://www.figma.com/design/jwCFXHiBZT4Ee5yyXCWiaQ/Ozzie-Quran-App
+- Design system reference screenshots: in /design inputs (tokens + buttons)
+- Sticky-note rules: in /design/sticky_notes (attempts/quizzes/blur/etc.)

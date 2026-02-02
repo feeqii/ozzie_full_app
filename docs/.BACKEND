@@ -1,0 +1,222 @@
+# BACKEND.md — Supabase System Architecture (Rules-Enforced Learning)
+
+## 0) Principles (non-negotiable)
+1) Backend enforces learning rules. Client cannot “cheat” progress by writing rows directly.
+2) All scoring/attempt logic that affects mastery/gates runs server-side.
+3) DB schema supports:
+   - attempt budgets (daily)
+   - pass-count mastery (cumulative)
+   - quiz gating stages
+   - progress analytics (streak/time/score)
+
+## 1) Architecture (high-level)
+Flutter App
+  → Supabase Auth (email)
+  → Supabase Postgres (progress + attempts + quizzes)
+  → Supabase Storage (recitation audio)
+  → Supabase Edge Functions:
+       - recitation_submit
+       - quiz_submit
+  → Scoring Service (external or internal):
+       - returns pass/fail + score (+ optional metadata)
+
+## 2) Data model (minimum tables)
+### profiles (parent)
+- id (uuid, auth.users.id)
+- display_name
+- pin_hash (or pin_salt+hash)
+- created_at, updated_at
+
+### children
+- id (uuid)
+- parent_id (uuid → profiles.id)
+- name
+- avatar_key, age_years (optional)
+- created_at
+
+### child_settings (per child tunables)
+- child_id (pk)
+- daily_attempt_cap (default 6)
+- realtime_feedback_cap (default 3)
+- passes_required (default 3)
+- pass_threshold (default benchmark-dependent, e.g. 80)
+- blur_after_attempt (nullable feature flag)
+- updated_at
+
+### ayah_progress (per child/surah/ayah)
+- child_id, surah_id, ayah_id (pk)
+- pass_count_total (int)
+- attempts_today (int)
+- attempts_date (date)         // reset logic
+- consecutive_fails (int)
+- mastered_at (timestamp nullable)
+- locked_until (timestamp nullable) // “try again tomorrow”
+- last_score (int nullable)
+- updated_at
+
+### surah_progress (per child/surah)
+- child_id, surah_id (pk)
+- stage (enum/text)
+  - LEARN_1_2, MINI_QUIZ_1, LEARN_3_4, MINI_QUIZ_2, LEARN_REST, FINAL_EXAM, COMPLETED
+- unlocked_ayah_max (int)
+- mini_quiz_1_passed_at, mini_quiz_2_passed_at, final_exam_passed_at
+- created_at, updated_at
+
+### recitation_attempts (immutable log)
+- id (uuid pk)
+- child_id, surah_id, ayah_id
+- attempt_number_today (int)
+- score (int)
+- passed (bool)
+- detailed_feedback_used (bool)
+- mistake_type (nullable)
+- audio_path (storage path)
+- transcript (nullable)
+- meta (jsonb nullable)
+- created_at
+
+### quiz_attempts
+- id (uuid pk)
+- child_id, surah_id
+- quiz_type (mini_1 | mini_2 | final)
+- attempt_number (int)
+- score (int)
+- passed (bool)
+- details (jsonb)
+- created_at
+
+### sessions + streaks (for analytics)
+sessions:
+- id, child_id, started_at, ended_at, counted
+
+streaks:
+- child_id (pk)
+- current_streak, best_streak
+- last_practice_date
+
+## 3) Storage
+Bucket: `recitations`
+- Path convention:
+  recitations/{child_id}/{surah_id}/{ayah_id}/{timestamp}.m4a
+
+Use signed upload URLs or direct upload with auth session.
+
+## 4) RLS (required)
+- Parent can only access rows tied to their children.
+- All tables keyed by child_id must check ownership:
+  EXISTS (children.id = table.child_id AND children.parent_id = auth.uid())
+
+Important:
+- Do NOT allow client direct writes to progress tables for mastery/gating.
+- Prefer:
+  - allow inserts to recitation_attempts only via Edge Function
+  - allow progress updates only via Edge Function (service role)
+
+Practical approach:
+- Edge Functions use service role for writes to sensitive tables.
+- Client has read access (via RLS) for dashboards and UI state.
+
+## 5) Edge Functions (core)
+### A) recitation_submit
+Purpose:
+- enforce daily budgets + mastery rules
+- call scoring service
+- write attempt log
+- update ayah_progress + surah_progress gates
+- return UI-ready payload
+
+Input:
+- child_id
+- surah_id
+- ayah_id
+- audio_path (already uploaded)
+
+Server steps:
+1) Verify parent owns child_id
+2) Reset attempts_today if attempts_date != today
+3) If locked_until > now → return locked status
+4) If attempts_today >= daily_attempt_cap (default 6):
+   - set locked_until = tomorrow start (or +24h)
+   - return locked status
+5) Determine whether detailed feedback is still available today
+   - detailed_used_today = count(recitation_attempts where detailed_feedback_used=true and date=today)
+   - allow if < realtime_feedback_cap (default 3)
+6) Call scoring service (audio_path + target ayah)
+   - receive score + passed + optional metadata
+7) Insert recitation_attempts (attempt_number_today = attempts_today+1, detailed_feedback_used flag)
+8) Update ayah_progress:
+   - attempts_today += 1
+   - consecutive_fails = passed ? 0 : consecutive_fails+1
+   - pass_count_total += passed ? 1 : 0
+   - mastered_at = now if pass_count_total >= passes_required
+   - last_score = score
+9) Gate logic:
+   - If ayah mastered now: update surah_progress.unlocked_ayah_max (and/or compute)
+   - If mastered triggers mini quiz gate (after ayah 2 or 4 mastered): set surah_progress.stage appropriately
+10) Return UI-ready response:
+- score, passed
+- passCountTotal, passesRemaining
+- attemptsToday, attemptsLeftToday
+- showDetailedFeedback (bool)
+- mustReplayLearnStep (bool)  // if consecutive_fails >= 2
+- shouldBlurVerse (bool)      // if blur_after_attempt enabled and attempt_number_today >= threshold
+- ayahMasteredNow (bool)
+- nextGate (nullable: MINI_QUIZ_1 / MINI_QUIZ_2 / FINAL_EXAM)
+- locked_until (nullable)
+
+### B) quiz_submit
+Purpose:
+- enforce quiz order and unlock next stage
+- write quiz_attempts
+- update surah_progress stage
+
+Input:
+- child_id, surah_id
+- quiz_type (mini_1|mini_2|final)
+- answers payload
+
+Server steps:
+1) Verify parent owns child_id
+2) Validate quiz_type is allowed given surah_progress.stage
+3) Grade answers (server-side)
+4) Write quiz_attempts
+5) If passed:
+   - set mini_quiz_1_passed_at / mini_quiz_2_passed_at / final_exam_passed_at
+   - move stage forward
+6) Return:
+- score, passed
+- nextStage
+- unlock info
+
+## 6) Scoring service contract (MVP)
+MVP can be simple but must be real:
+- ASR transcription + similarity vs target
+- threshold-based pass/fail
+
+Input:
+- audio file (or URL) + target ayah text
+Output:
+- score (0–100)
+- passed (bool)
+- optional:
+  - transcript
+  - mistake_type
+  - timestamps
+  - confidence
+
+The backend treats the scoring provider as swappable.
+
+## 7) Session + streak logic (minimum)
+- A “practice day” is any day with >= 1 recitation_attempt by child.
+- Streak increments when last_practice_date == yesterday and practice today.
+- Sessions:
+  - counted when child exits ayah flow or app backgrounded (as per notes).
+  - store started_at/ended_at for recite-time charts.
+
+## 8) Backend build order (efficient)
+1) Supabase project init + env + storage bucket
+2) Migrations + RLS
+3) Seed minimal config/child_settings defaults
+4) Edge function skeletons (recitation_submit, quiz_submit)
+5) Scoring integration stub that is real (even if simplistic)
+6) Only then build UI flows that depend on these rules

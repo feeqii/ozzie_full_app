@@ -1,0 +1,156 @@
+# FRONTEND.md — Flutter + Riverpod Implementation Guide (Design + Flows)
+
+## 0) Non-negotiable approach
+- The Figma file is messy: do NOT try to generate production code by mirroring each “state screen”.
+- Build a clean code design system in Flutter first, then implement screens by composition.
+- Recitation and Quiz must be single “engines” driven by state, not dozens of duplicated widgets.
+
+## 1) Stack
+- Flutter
+- Riverpod (state management)
+- go_router (routing)
+- supabase_flutter (auth/db/storage)
+- record + just_audio (recording/playback)
+- permission_handler
+- freezed/json_serializable (models)
+
+## 2) Design tokens (from design system reference)
+### Colors
+- Primary CTA gradient: #1DCFEB → #5BA9FF
+- Progress active: #FF9D00
+- Progress track:  #4F5457
+- Gamification light: #E7EBEF
+- Success: #03BF35
+- Danger:  #EC6361
+- Warning: #FFD500
+- Neutral gray: #3D3D3D
+- Black: #000000
+- White: #FFFFFF
+- Text muted: #687D91
+- Text navy:  #042748
+
+### Shadows/accents (used as “depth” cues)
+- Stable button accent: #05B734 / #E88F00 / #0086FF
+- Action inner shadow: #A8F2BC / #AED2F3 / #F3EBAB
+
+### Spacing + radii (choose and enforce)
+- Spacing scale: 4 / 8 / 12 / 16 / 24 / 32
+- Radius: 12–18 for buttons/cards (consistent)
+- Illustration slot on learning screens: reserve ~35–45% of vertical space
+
+## 3) Core reusable components (must implement first)
+1) PrimaryButton (variants: primary, success, warning, danger, disabled, loading)
+2) ActionIconButton (square + round; inner shadow variants)
+3) ModalSheet (success/fail/info; supports illustration slot)
+4) ProgressBar + StarsRow (simple, no heavy stats top bar early)
+5) QuizOptionCard (default/selected/correct/wrong/disabled)
+6) RecorderModule (idle → recording → review → submitting)
+7) RewardCard (Hasanat/badge/trophy)
+8) StatTile (streak/time/score)
+9) IllustrationFrame (forces consistent image sizing)
+
+## 4) Navigation + screen responsibilities (MVP)
+Auth/Parent:
+- Splash/Onboarding (optional)
+- SignIn / SignUp / OTP / VerifySuccess
+- SetPin / EnterPin
+- SelectChild
+- AddChild
+- ParentDashboard (later in MVP)
+- ParentSettings (later in MVP)
+
+Child:
+- ChildHome (journey/path)
+- SurahOverview
+- AyahLearn (illustration + meaning + listen)
+- RecitationPractice (engine screen)
+- QuizScreen (engine screen; supports quiz types)
+- ProgressHome (links to Streak/Time/Score)
+- StreakScreen
+- ReciteTimeScreen
+- ScoreScreen
+
+Rule: Keep “RecitationPractice” and “QuizScreen” as single screens driven by state.
+
+## 5) Riverpod state model (minimal)
+Global:
+- authSessionProvider
+- parentProfileProvider
+- selectedChildProvider
+
+Feature providers:
+- childSettingsProvider(childId)
+- surahProgressProvider(childId, surahId)
+- ayahProgressProvider(childId, surahId, ayahId)
+- recitationControllerProvider(params)  // state machine driver
+- quizControllerProvider(params)
+
+Repository pattern:
+- SupabaseClient wrapper
+- ProgressRepository (reads progress, subscribes if needed)
+- RecitationRepository (upload audio + call edge function)
+- QuizRepository (submit quiz)
+
+## 6) Frontend state machines (must mirror backend)
+### RecitationPractice screen
+States:
+- Idle
+- Recording
+- Reviewing (playback)
+- Submitting (upload/call)
+- FeedbackSuccess / FeedbackFail
+- InterventionRequired (after 2 consecutive fails)
+- LockedOut (daily cap)
+- GateToQuiz (mini/final)
+- AyahMastered (when passesRequired met)
+
+UI is driven entirely by the backend response from recitation_submit:
+- passesRemaining
+- attemptsLeftToday
+- showDetailedFeedback
+- mustReplayLearnStep
+- shouldBlurVerse
+- nextGate
+- locked_until
+
+### QuizScreen
+Supports quiz types:
+- mini_1, mini_2, final
+Question variants (UI templates):
+- recite-from-memory prompt
+- fill in blank / continuation
+- match meanings
+- comprehension MCQ
+
+Quiz order is enforced by backend stage.
+
+## 7) How to use Figma efficiently (without cleanup)
+Use Figma for:
+- token confirmation (colors, gradients, radii)
+- reference layouts for key screens (golden path)
+- illustration sizing expectations
+
+Do NOT:
+- generate 1:1 screen code for every “start-XX” state
+- mirror group/rectangle layer names in Flutter
+
+Recommended input method:
+- Put reference screenshots (golden path) in /design/key_screens
+- Put sticky rules in /design/sticky_notes
+- Treat /docs/*.md as the true spec
+
+## 8) Build order (Codex-friendly)
+1) Theme tokens + component library (PrimaryButton, ModalSheet, RecorderModule, QuizOptionCard)
+2) Router skeleton + placeholders
+3) Supabase auth screens + parent gate + child selection
+4) Surah/Ayah content screens
+5) Recitation engine (record/upload/submit/display results)
+6) Quiz engine + gates
+7) Progress dashboards
+
+## 9) UI/UX constraints from project notes
+- Illustrations must be large and comfortable—use IllustrationFrame and reserve space.
+- Avoid heavy stats top bar early in quiz flows.
+- Pathway visuals can be simplified; avoid repeating galaxy motif everywhere.
+- Mini quiz schedule is fixed: after 2 verses, mini quiz; total 2 minis then final exam.
+- Failure logic should feel encouraging but strict (backend-enforced caps and intervention).
