@@ -31,7 +31,7 @@ Flutter App
 - id (uuid)
 - parent_id (uuid → profiles.id)
 - name
-- avatar_key, age_years (optional)
+- avatar_key, age_years 
 - created_at
 
 ### child_settings (per child tunables)

@@ -12,11 +12,13 @@ class PinInput extends StatelessWidget {
     this.length = 4,
     this.onChanged,
     this.onForgotPin,
+    this.value,
   });
 
   final int length;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onForgotPin;
+  final String? value;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +36,10 @@ class PinInput extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLength: 1,
                 obscureText: true,
+                readOnly: true,
+                controller: TextEditingController(
+                  text: (value != null && value!.length > index) ? '•' : '',
+                ),
                 onChanged: (value) {
                   if (value.isNotEmpty && index < length - 1) {
                     FocusScope.of(context).nextFocus();
