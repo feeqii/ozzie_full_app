@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/simulated_auth_password.dart';
+
 class AuthRepository {
   AuthRepository(this._client);
 
@@ -13,10 +15,28 @@ class AuthRepository {
     required String email,
     required bool shouldCreateUser,
   }) async {
-    await _client.auth.signInWithOtp(
+    final password = buildSimulatedPassword(email);
+    if (shouldCreateUser) {
+      try {
+        await _client.auth.signUp(
+          email: email,
+          password: password,
+        );
+        return;
+      } on AuthException catch (error) {
+        final message = error.message.toLowerCase();
+        final alreadyExists = message.contains('already') ||
+            message.contains('registered') ||
+            message.contains('exists');
+        if (!alreadyExists) {
+          rethrow;
+        }
+      }
+    }
+
+    await _client.auth.signInWithPassword(
       email: email,
-      shouldCreateUser: shouldCreateUser,
-      emailRedirectTo: null,
+      password: password,
     );
   }
 
@@ -24,10 +44,9 @@ class AuthRepository {
     required String email,
     required String token,
   }) async {
-    return _client.auth.verifyOTP(
+    return _client.auth.signInWithPassword(
       email: email,
-      token: token,
-      type: OtpType.email,
+      password: buildSimulatedPassword(email),
     );
   }
 

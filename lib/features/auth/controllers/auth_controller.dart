@@ -64,6 +64,11 @@ class AuthController extends StateNotifier<AuthActionState> {
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      if (token.trim().length != 6) {
+        state = state.copyWith(isLoading: false, errorMessage: 'Enter the 6-digit code.');
+        return false;
+      }
+
       await _repo.verifyOtp(email: email.trim(), token: token.trim());
       state = state.copyWith(isLoading: false);
       return true;

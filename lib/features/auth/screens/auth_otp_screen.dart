@@ -67,7 +67,7 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
           Text('Verification code', style: AppTextStyles.title),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Please enter the verification code sent to your email\n${widget.args.email}',
+            'Enter any 6-digit code to continue\n${widget.args.email}',
             style: AppTextStyles.body,
           ),
           const SizedBox(height: AppSpacing.xl),
