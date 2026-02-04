@@ -1,0 +1,18 @@
+{
+  "surahs": [
+    {
+      "id": 1,
+      "name": "Al-Fatihah",
+      "translation": "The Opening",
+      "ayah_count": 7,
+      "summary": "A short opening prayer for guidance and mercy."
+    },
+    {
+      "id": 112,
+      "name": "Al-Ikhlas",
+      "translation": "Sincerity",
+      "ayah_count": 4,
+      "summary": "A declaration of Allah's absolute oneness."
+    }
+  ]
+}

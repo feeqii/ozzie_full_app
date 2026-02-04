@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
 
 class IllustrationFrame extends StatelessWidget {

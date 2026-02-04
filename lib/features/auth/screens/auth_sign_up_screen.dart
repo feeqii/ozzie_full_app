@@ -10,7 +10,6 @@ import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/app_text_field.dart';
 import '../../../core/ui/primary_button.dart';
 import '../controllers/auth_controller.dart';
-import '../models/auth_flow_args.dart';
 
 class AuthSignUpScreen extends ConsumerStatefulWidget {
   const AuthSignUpScreen({super.key});
@@ -21,12 +20,14 @@ class AuthSignUpScreen extends ConsumerStatefulWidget {
 
 class _AuthSignUpScreenState extends ConsumerState<AuthSignUpScreen> {
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   String? _errorText;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -38,32 +39,29 @@ class _AuthSignUpScreenState extends ConsumerState<AuthSignUpScreen> {
 
   Future<void> _submit() async {
     final email = _emailController.text.trim();
+    final password = _passwordController.text;
     if (!_isValidEmail(email)) {
       setState(() => _errorText = 'Enter a valid email address.');
       return;
     }
+    if (password.length < 6) {
+      setState(() => _errorText = 'Password must be at least 6 characters.');
+      return;
+    }
     setState(() => _errorText = null);
 
-    await ref.read(authControllerProvider.notifier).sendOtp(
+    final success = await ref.read(authControllerProvider.notifier).signUp(
           email: email,
-          shouldCreateUser: true,
+          password: password,
           displayName: _nameController.text.trim(),
         );
 
-    final state = ref.read(authControllerProvider);
-    if (state.errorMessage != null && mounted) {
+    if (!success && mounted) {
       return;
     }
 
     if (mounted) {
-      context.push(
-        '/auth/otp',
-        extra: AuthFlowArgs(
-          email: email,
-          isSignUp: true,
-          displayName: _nameController.text.trim(),
-        ),
-      );
+      context.go('/auth/success');
     }
   }
 
@@ -73,41 +71,62 @@ class _AuthSignUpScreenState extends ConsumerState<AuthSignUpScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Sign Up'),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Create your account', style: AppTextStyles.title),
-          const SizedBox(height: AppSpacing.sm),
-          Text('We will send a verification code to your email.',
-              style: AppTextStyles.body),
-          const SizedBox(height: AppSpacing.xl),
-          AppTextField(
-            label: 'Enter your email',
-            hintText: 'mail@mailto.com',
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            errorText: _errorText,
-            onChanged: (_) => setState(() => _errorText = null),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppTextField(
-            label: 'Display name (optional)',
-            hintText: 'Parent name',
-            controller: _nameController,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (state.errorMessage != null)
-            AlertBanner(
-              message: state.errorMessage!,
-              variant: AlertBannerVariant.danger,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Create your account', style: AppTextStyles.title),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text('We will send a verification code to your email.',
+                        style: AppTextStyles.body),
+                    const SizedBox(height: AppSpacing.xl),
+                    AppTextField(
+                      label: 'Enter your email',
+                      hintText: 'mail@mailto.com',
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      errorText: _errorText,
+                      onChanged: (_) => setState(() => _errorText = null),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppTextField(
+                      label: 'Password',
+                      hintText: 'Create a password',
+                      controller: _passwordController,
+                      obscureText: true,
+                      keyboardType: TextInputType.visiblePassword,
+                      onChanged: (_) => setState(() => _errorText = null),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppTextField(
+                      label: 'Display name (optional)',
+                      hintText: 'Parent name',
+                      controller: _nameController,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (state.errorMessage != null)
+                      AlertBanner(
+                        message: state.errorMessage!,
+                        variant: AlertBannerVariant.danger,
+                      ),
+                    const Spacer(),
+                    PrimaryButton(
+                      label: 'Create account',
+                      isLoading: state.isLoading,
+                      onPressed: state.isLoading ? null : _submit,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          const Spacer(),
-          PrimaryButton(
-            label: 'Send OTP',
-            isLoading: state.isLoading,
-            onPressed: state.isLoading ? null : _submit,
-          ),
-        ],
+          );
+        },
       ),
     );
   }

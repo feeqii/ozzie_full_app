@@ -1,0 +1,56 @@
+{
+  "id": 1,
+  "name": "Al-Fatihah",
+  "translation": "The Opening",
+  "ayahs": [
+    {
+      "id": 1,
+      "arabic": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+      "transliteration": "Bismillahir Rahmanir Rahim",
+      "translation": "In the name of Allah, the Most Gracious, the Most Merciful.",
+      "meaning": "Begin with Allah's name and mercy."
+    },
+    {
+      "id": 2,
+      "arabic": "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
+      "transliteration": "Alhamdu lillahi Rabbil 'alamin",
+      "translation": "All praise is due to Allah, Lord of the worlds.",
+      "meaning": "Praise and gratitude belong to Allah."
+    },
+    {
+      "id": 3,
+      "arabic": "الرَّحْمَٰنِ الرَّحِيمِ",
+      "transliteration": "Ar-Rahmanir Rahim",
+      "translation": "The Most Gracious, the Most Merciful.",
+      "meaning": "Allah is full of mercy."
+    },
+    {
+      "id": 4,
+      "arabic": "مَالِكِ يَوْمِ الدِّينِ",
+      "transliteration": "Maliki yawmi d-din",
+      "translation": "Master of the Day of Judgment.",
+      "meaning": "Allah is in control of the final day."
+    },
+    {
+      "id": 5,
+      "arabic": "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ",
+      "transliteration": "Iyyaka na'budu wa iyyaka nasta'in",
+      "translation": "You alone we worship, and You alone we ask for help.",
+      "meaning": "We worship Allah and seek His help."
+    },
+    {
+      "id": 6,
+      "arabic": "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ",
+      "transliteration": "Ihdina as-sirata al-mustaqim",
+      "translation": "Guide us to the straight path.",
+      "meaning": "Ask Allah for guidance."
+    },
+    {
+      "id": 7,
+      "arabic": "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ",
+      "transliteration": "Sirata alladhina an'amta 'alayhim ghayri al-maghdubi 'alayhim wa la ad-dallin",
+      "translation": "The path of those upon whom You have bestowed favor, not of those who have angered You nor of those who go astray.",
+      "meaning": "Ask to stay on the path of the favored."
+    }
+  ]
+}

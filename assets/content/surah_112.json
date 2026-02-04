@@ -1,0 +1,35 @@
+{
+  "id": 112,
+  "name": "Al-Ikhlas",
+  "translation": "Sincerity",
+  "ayahs": [
+    {
+      "id": 1,
+      "arabic": "قُلْ هُوَ اللَّهُ أَحَدٌ",
+      "transliteration": "Qul huwa Allahu ahad",
+      "translation": "Say, He is Allah, the One.",
+      "meaning": "Declare Allah's oneness."
+    },
+    {
+      "id": 2,
+      "arabic": "اللَّهُ الصَّمَدُ",
+      "transliteration": "Allahu as-samad",
+      "translation": "Allah, the Eternal Refuge.",
+      "meaning": "Allah is the one we depend on."
+    },
+    {
+      "id": 3,
+      "arabic": "لَمْ يَلِدْ وَلَمْ يُولَدْ",
+      "transliteration": "Lam yalid wa lam yulad",
+      "translation": "He neither begets nor is born.",
+      "meaning": "Allah has no parent or child."
+    },
+    {
+      "id": 4,
+      "arabic": "وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ",
+      "transliteration": "Wa lam yakun lahu kufuwan ahad",
+      "translation": "Nor is there to Him any equivalent.",
+      "meaning": "Nothing compares to Allah."
+    }
+  ]
+}

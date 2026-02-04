@@ -81,6 +81,9 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
     final isValid = PinHash.verifyPin(_pin, storedHash);
     if (!isValid) {
       attempts.registerFailure();
+      if (!mounted) {
+        return;
+      }
       AppSnackbar.show(context, message: 'Incorrect PIN.', isError: true);
       setState(() {
         _pin = '';
@@ -128,50 +131,62 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Parental PIN', showBack: false),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Hello, parent', style: AppTextStyles.title, textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Please confirm your entrance.',
-            style: AppTextStyles.body,
-            textAlign: TextAlign.center,
-          ),
-          if (cooldownSeconds > 0) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Try again in $cooldownSeconds seconds',
-              style: AppTextStyles.caption,
-              textAlign: TextAlign.center,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Hello, parent', style: AppTextStyles.title, textAlign: TextAlign.center),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Please confirm your entrance.',
+                      style: AppTextStyles.body,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (cooldownSeconds > 0) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Try again in $cooldownSeconds seconds',
+                        style: AppTextStyles.caption,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.xl),
+                    PinInput(
+                      length: 4,
+                      value: _pin,
+                      onForgotPin: () {
+                        _signOutToAuth();
+                      },
+                    ),
+                    Center(
+                      child: AppTextButton(
+                        label: 'Switch account',
+                        onPressed: _signOutToAuth,
+                      ),
+                    ),
+                    const Spacer(),
+                    _PinKeypad(
+                      onDigit: _appendDigit,
+                      onBackspace: _removeDigit,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    PrimaryButton(
+                      label: 'Verify PIN',
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _verify,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
-          const SizedBox(height: AppSpacing.xl),
-          PinInput(
-            length: 4,
-            value: _pin,
-            onForgotPin: () {
-              _signOutToAuth();
-            },
-          ),
-          Center(
-            child: AppTextButton(
-              label: 'Switch account',
-              onPressed: _signOutToAuth,
-            ),
-          ),
-          const Spacer(),
-          _PinKeypad(
-            onDigit: _appendDigit,
-            onBackspace: _removeDigit,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(
-            label: 'Verify PIN',
-            isLoading: _isLoading,
-            onPressed: _isLoading ? null : _verify,
-          ),
-        ],
+          );
+        },
       ),
     );
   }

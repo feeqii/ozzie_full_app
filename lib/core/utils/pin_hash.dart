@@ -15,7 +15,7 @@ class PinHash {
   static String hashPin(String pin, String salt) {
     final bytes = utf8.encode('$salt$pin');
     final digest = sha256.convert(bytes);
-    return '${salt}\$${digest.toString()}';
+    return '$salt\$${digest.toString()}';
   }
 
   static bool verifyPin(String pin, String storedHash) {

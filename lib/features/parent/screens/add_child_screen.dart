@@ -11,7 +11,6 @@ import '../../../core/ui/app_snackbar.dart';
 import '../../../core/ui/app_text_field.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../child/providers/child_providers.dart';
-import '../../child/repo/child_repository.dart';
 
 class AddChildScreen extends ConsumerStatefulWidget {
   const AddChildScreen({super.key});
@@ -78,14 +77,12 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
 
       if (existingCount == 0) {
         await ref.read(selectedChildIdProvider.notifier).selectChild(child.id);
-        if (context.mounted) {
-          context.go('/child/home');
-        }
+        if (!mounted) return;
+        context.go('/child/home');
       } else {
         await ref.read(selectedChildIdProvider.notifier).clear();
-        if (context.mounted) {
-          context.go('/parent/child/select');
-        }
+        if (!mounted) return;
+        context.go('/parent/child/select');
       }
     } catch (error) {
       AppSnackbar.show(context, message: 'Unable to add child. Try again.', isError: true);
@@ -102,66 +99,78 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       appBar: const AppAppBar(title: 'Add Child'),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Who will recite?', style: AppTextStyles.title),
-          const SizedBox(height: AppSpacing.sm),
-          Text('Please add your child details.', style: AppTextStyles.body),
-          const SizedBox(height: AppSpacing.xl),
-          AppTextField(
-            label: 'Child name',
-            controller: _nameController,
-            hintText: 'Your child name',
-            errorText: _errorText,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Child year of birth', style: AppTextStyles.caption),
-          const SizedBox(height: AppSpacing.sm),
-          DropdownButtonFormField<int>(
-            value: _selectedYear,
-            items: _yearOptions
-                .map(
-                  (year) => DropdownMenuItem(
-                    value: year,
-                    child: Text(year.toString()),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) => setState(() => _selectedYear = value),
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Who will recite?', style: AppTextStyles.title),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text('Please add your child details.', style: AppTextStyles.body),
+                    const SizedBox(height: AppSpacing.xl),
+                    AppTextField(
+                      label: 'Child name',
+                      controller: _nameController,
+                      hintText: 'Your child name',
+                      errorText: _errorText,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text('Child year of birth', style: AppTextStyles.caption),
+                    const SizedBox(height: AppSpacing.sm),
+                    DropdownButtonFormField<int>(
+                      initialValue: _selectedYear,
+                      items: _yearOptions
+                          .map(
+                            (year) => DropdownMenuItem(
+                              value: year,
+                              child: Text(year.toString()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) => setState(() => _selectedYear = value),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text('Child gender', style: AppTextStyles.caption),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _GenderButton(
+                            label: 'Girl',
+                            isSelected: _selectedGender == 'girl',
+                            onTap: () => setState(() => _selectedGender = 'girl'),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: _GenderButton(
+                            label: 'Boy',
+                            isSelected: _selectedGender == 'boy',
+                            onTap: () => setState(() => _selectedGender = 'boy'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    PrimaryButton(
+                      label: 'Confirm',
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _submit,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Child gender', style: AppTextStyles.caption),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: _GenderButton(
-                  label: 'Girl',
-                  isSelected: _selectedGender == 'girl',
-                  onTap: () => setState(() => _selectedGender = 'girl'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _GenderButton(
-                  label: 'Boy',
-                  isSelected: _selectedGender == 'boy',
-                  onTap: () => setState(() => _selectedGender = 'boy'),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          PrimaryButton(
-            label: 'Confirm',
-            isLoading: _isLoading,
-            onPressed: _isLoading ? null : _submit,
-          ),
-        ],
+          );
+        },
       ),
     );
   }

@@ -21,9 +21,9 @@ class AuthSuccessScreen extends StatelessWidget {
             child: Icon(Icons.check_circle_outline, size: 52),
           ),
           const SizedBox(height: AppSpacing.lg),
-          Text('Successfully', style: AppTextStyles.title),
+          Text('Success', style: AppTextStyles.title),
           const SizedBox(height: AppSpacing.sm),
-          Text('Your account has been created', style: AppTextStyles.body),
+          Text('You are signed in', style: AppTextStyles.body),
           const SizedBox(height: AppSpacing.xl),
           PrimaryButton(
             label: 'Continue',

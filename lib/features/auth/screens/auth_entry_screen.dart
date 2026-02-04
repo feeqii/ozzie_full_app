@@ -33,15 +33,7 @@ class AuthEntryScreen extends StatelessWidget {
             onPressed: () => context.push('/auth/signin'),
           ),
           const SizedBox(height: AppSpacing.xl),
-          Row(
-            children: const [
-              Expanded(child: Divider(height: 1)),
-              SizedBox(width: AppSpacing.md),
-              Text('Continue as guest →', style: AppTextStyles.caption),
-              SizedBox(width: AppSpacing.md),
-              Expanded(child: Divider(height: 1)),
-            ],
-          ),
+          Text('Use email + password to continue.', style: AppTextStyles.caption),
         ],
       ),
     );

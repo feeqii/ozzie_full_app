@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import 'primary_button.dart';

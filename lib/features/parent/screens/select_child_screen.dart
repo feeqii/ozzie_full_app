@@ -20,7 +20,16 @@ class SelectChildScreen extends ConsumerWidget {
     final childrenAsync = ref.watch(childrenProvider);
 
     return AppScaffold(
-      appBar: const AppAppBar(title: 'Parental Area', showBack: false),
+      appBar: AppAppBar(
+        title: 'Parental Area',
+        showBack: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dashboard_outlined),
+            onPressed: () => context.go('/parent/dashboard'),
+          ),
+        ],
+      ),
       body: childrenAsync.when(
         data: (children) {
           if (children.isEmpty) {

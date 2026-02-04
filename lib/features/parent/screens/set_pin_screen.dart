@@ -90,11 +90,16 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
       final salt = PinHash.generateSalt();
       final hashed = PinHash.hashPin(_pin, salt);
       await ref.read(parentRepositoryProvider).updatePinHash(hashed);
+      ref.invalidate(parentProfileProvider);
+      await ref.read(parentProfileProvider.future);
       ref.read(pinVerifiedProvider.notifier).state = true;
       if (mounted) {
         context.go('/parent/child/select');
       }
     } catch (error) {
+      if (!mounted) {
+        return;
+      }
       AppSnackbar.show(context, message: 'Unable to save PIN. Try again.', isError: true);
     } finally {
       if (mounted) {
@@ -114,35 +119,47 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Parental PIN', showBack: false),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: AppTextStyles.title, textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.sm),
-          Text(message, style: AppTextStyles.body, textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.xl),
-          PinInput(
-            length: 4,
-            value: _isConfirmStep ? _confirm : _pin,
-          ),
-          Center(
-            child: AppTextButton(
-              label: 'Switch account',
-              onPressed: _signOutToAuth,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(title, style: AppTextStyles.title, textAlign: TextAlign.center),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(message, style: AppTextStyles.body, textAlign: TextAlign.center),
+                    const SizedBox(height: AppSpacing.xl),
+                    PinInput(
+                      length: 4,
+                      value: _isConfirmStep ? _confirm : _pin,
+                    ),
+                    Center(
+                      child: AppTextButton(
+                        label: 'Switch account',
+                        onPressed: _signOutToAuth,
+                      ),
+                    ),
+                    const Spacer(),
+                    _PinKeypad(
+                      onDigit: _appendDigit,
+                      onBackspace: _removeDigit,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    PrimaryButton(
+                      label: _isConfirmStep ? 'Save PIN' : 'Continue',
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _continue,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const Spacer(),
-          _PinKeypad(
-            onDigit: _appendDigit,
-            onBackspace: _removeDigit,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(
-            label: _isConfirmStep ? 'Save PIN' : 'Continue',
-            isLoading: _isLoading,
-            onPressed: _isLoading ? null : _continue,
-          ),
-        ],
+          );
+        },
       ),
     );
   }

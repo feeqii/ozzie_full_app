@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/models/auth_flow_args.dart';
 import '../../features/auth/providers/auth_session_provider.dart';
 import '../../features/auth/screens/auth_entry_screen.dart';
 import '../../features/auth/screens/auth_otp_screen.dart';
@@ -13,17 +12,30 @@ import '../../features/auth/screens/auth_sign_up_screen.dart';
 import '../../features/auth/screens/auth_success_screen.dart';
 import '../../features/child/child_home_screen.dart';
 import '../../features/child/providers/child_providers.dart';
+import '../../features/child/screens/ayah_learn_screen.dart';
+import '../../features/child/screens/surah_overview_screen.dart';
 import '../../features/gallery/design_system_gallery_screen.dart';
+import '../../features/parent/screens/parent_dashboard_screen.dart';
 import '../../features/parent/providers/parent_profile_provider.dart';
 import '../../features/parent/screens/add_child_screen.dart';
 import '../../features/parent/screens/enter_pin_screen.dart';
 import '../../features/parent/screens/select_child_screen.dart';
 import '../../features/parent/screens/set_pin_screen.dart';
+import '../../features/progress/screens/child_progress_home_screen.dart';
+import '../../features/progress/screens/child_recite_time_screen.dart';
+import '../../features/progress/screens/child_score_screen.dart';
+import '../../features/progress/screens/child_streak_screen.dart';
+import '../../features/quiz/models/quiz_models.dart';
+import '../../features/quiz/screens/quiz_screen.dart';
+import '../../features/recitation/screens/recitation_practice_screen.dart';
+import '../../features/rewards/models/reward_event.dart';
+import '../../features/rewards/screens/reward_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/auth/entry',
     refreshListenable: GoRouterRefreshStream(
+      // ignore: deprecated_member_use
       ref.watch(authSessionProvider.stream),
     ),
     redirect: (context, state) {
@@ -35,6 +47,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final inDesignFlow = state.uri.path == '/';
       final inParentFlow = state.uri.path.startsWith('/parent');
       final inChildFlow = state.uri.path.startsWith('/child');
+      final isAllowedParentRoute =
+          state.uri.path == '/parent/dashboard' || state.uri.path.startsWith('/parent/child');
 
       final profileAsync = ref.read(parentProfileProvider);
       final pinVerified = ref.read(pinVerifiedProvider);
@@ -97,6 +111,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (selectedId != onlyChild.id) {
           ref.read(selectedChildIdProvider.notifier).selectChild(onlyChild.id);
         }
+        if (inParentFlow && isAllowedParentRoute) {
+          return null;
+        }
         if (state.uri.path != '/child/home') {
           return '/child/home';
         }
@@ -106,7 +123,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final selectedId = selectedChildIdAsync.asData?.value;
       final hasSelected = selectedId != null && children.any((child) => child.id == selectedId);
       if (!hasSelected) {
-        if (state.uri.path != '/parent/child/select') {
+        if (!isAllowedParentRoute && state.uri.path != '/parent/child/select') {
           return '/parent/child/select';
         }
         return null;
@@ -116,7 +133,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/child/home';
       }
 
-      if (inParentFlow && state.uri.path != '/parent/child/select') {
+      if (inParentFlow && !isAllowedParentRoute) {
         return '/child/home';
       }
 
@@ -145,13 +162,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/auth/otp',
-        builder: (context, state) {
-          final args = state.extra as AuthFlowArgs?;
-          if (args == null) {
-            return const AuthEntryScreen();
-          }
-          return AuthOtpScreen(args: args);
-        },
+        builder: (context, state) => const AuthOtpScreen(),
       ),
       GoRoute(
         path: '/auth/success',
@@ -166,6 +177,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const EnterPinScreen(),
       ),
       GoRoute(
+        path: '/parent/dashboard',
+        builder: (context, state) => const ParentDashboardScreen(),
+      ),
+      GoRoute(
         path: '/parent/child/select',
         builder: (context, state) => const SelectChildScreen(),
       ),
@@ -174,8 +189,117 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AddChildScreen(),
       ),
       GoRoute(
+        path: '/parent/child/:childId/progress',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ChildProgressHomeScreen(childId: childId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/child/:childId/progress/streak',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ChildStreakScreen(childId: childId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/child/:childId/progress/time',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ChildReciteTimeScreen(childId: childId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/child/:childId/progress/score',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ChildScoreScreen(childId: childId);
+        },
+      ),
+      GoRoute(
         path: '/child/home',
         builder: (context, state) => const ChildHomeScreen(),
+      ),
+      GoRoute(
+        path: '/child/progress',
+        builder: (context, state) => const ChildProgressHomeScreen(),
+      ),
+      GoRoute(
+        path: '/child/progress/streak',
+        builder: (context, state) => const ChildStreakScreen(),
+      ),
+      GoRoute(
+        path: '/child/progress/time',
+        builder: (context, state) => const ChildReciteTimeScreen(),
+      ),
+      GoRoute(
+        path: '/child/progress/score',
+        builder: (context, state) => const ChildScoreScreen(),
+      ),
+      GoRoute(
+        path: '/child/reward',
+        builder: (context, state) {
+          final args = state.extra as RewardScreenArgs?;
+          if (args == null) {
+            return const ChildHomeScreen();
+          }
+          return RewardScreen(args: args);
+        },
+      ),
+      GoRoute(
+        path: '/child/surah/:surahId',
+        builder: (context, state) {
+          final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
+          if (surahId == null) {
+            return const ChildHomeScreen();
+          }
+          return SurahOverviewScreen(surahId: surahId);
+        },
+      ),
+      GoRoute(
+        path: '/child/surah/:surahId/ayah/:ayahId',
+        builder: (context, state) {
+          final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
+          final ayahId = int.tryParse(state.pathParameters['ayahId'] ?? '');
+          if (surahId == null || ayahId == null) {
+            return const ChildHomeScreen();
+          }
+          return AyahLearnScreen(surahId: surahId, ayahId: ayahId);
+        },
+      ),
+      GoRoute(
+        path: '/child/surah/:surahId/ayah/:ayahId/recite',
+        builder: (context, state) {
+          final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
+          final ayahId = int.tryParse(state.pathParameters['ayahId'] ?? '');
+          if (surahId == null || ayahId == null) {
+            return const ChildHomeScreen();
+          }
+          return RecitationPracticeScreen(surahId: surahId, ayahId: ayahId);
+        },
+      ),
+      GoRoute(
+        path: '/child/surah/:surahId/quiz/:quizType',
+        builder: (context, state) {
+          final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
+          final quizType = quizTypeFromRoute(state.pathParameters['quizType']);
+          if (surahId == null || quizType == null) {
+            return const ChildHomeScreen();
+          }
+          return QuizScreen(surahId: surahId, quizType: quizType);
+        },
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
