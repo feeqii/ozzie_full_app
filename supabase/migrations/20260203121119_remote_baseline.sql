@@ -1,0 +1,2 @@
+-- Baseline migration stub: remote migration exists in Supabase but file is missing locally.
+-- This no-op file allows Supabase CLI to align migration history.

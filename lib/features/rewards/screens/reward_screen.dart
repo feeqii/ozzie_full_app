@@ -26,50 +26,62 @@ class RewardScreen extends StatelessWidget {
     final event = args.event;
     return AppScaffold(
       appBar: const AppAppBar(title: 'Rewards', showBack: false),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(event.title, style: AppTextStyles.title),
-          const SizedBox(height: AppSpacing.sm),
-          Text(event.message, style: AppTextStyles.body),
-          const SizedBox(height: AppSpacing.xl),
-          Center(
-            child: IllustrationFrame(
-              size: 150,
-              child: Icon(
-                _iconFor(event.type),
-                size: 48,
-                color: AppColors.textNavy,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(event.title, style: AppTextStyles.title),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(event.message, style: AppTextStyles.body),
+                    const SizedBox(height: AppSpacing.xl),
+                    Center(
+                      child: IllustrationFrame(
+                        size: 150,
+                        child: Icon(
+                          _iconFor(event.type),
+                          size: 48,
+                          color: AppColors.textNavy,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    RewardCard(
+                      title: event.title,
+                      subtitle: event.message,
+                      variant: _variantFor(event.type),
+                    ),
+                    if (event.score != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      StatTile(
+                        title: 'Score',
+                        value: '${event.score}%',
+                        variant: StatTileVariant.score,
+                      ),
+                    ],
+                    const Spacer(),
+                    PrimaryButton(
+                      label: args.primaryLabel,
+                      onPressed: () => context.go(args.primaryRoute),
+                    ),
+                    if (args.secondaryLabel != null && args.secondaryRoute != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SecondaryButton(
+                        label: args.secondaryLabel!,
+                        onPressed: () => context.go(args.secondaryRoute!),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          RewardCard(
-            title: event.title,
-            subtitle: event.message,
-            variant: _variantFor(event.type),
-          ),
-          if (event.score != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            StatTile(
-              title: 'Score',
-              value: '${event.score}%',
-              variant: StatTileVariant.score,
-            ),
-          ],
-          const Spacer(),
-          PrimaryButton(
-            label: args.primaryLabel,
-            onPressed: () => context.go(args.primaryRoute),
-          ),
-          if (args.secondaryLabel != null && args.secondaryRoute != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            SecondaryButton(
-              label: args.secondaryLabel!,
-              onPressed: () => context.go(args.secondaryRoute!),
-            ),
-          ],
-        ],
+          );
+        },
       ),
     );
   }

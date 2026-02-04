@@ -63,7 +63,7 @@ class QuizScreen extends ConsumerWidget {
           secondaryRoute: '/child/surah/$surahId',
         );
         notifier.clearReward();
-        context.go('/child/reward', extra: args);
+        context.push('/child/reward', extra: args);
         return;
       }
 
@@ -83,7 +83,7 @@ class QuizScreen extends ConsumerWidget {
               onPressed: () {
                 context.pop();
                 if (passed) {
-                  context.go('/child/surah/$surahId');
+                  context.pop();
                 } else {
                   notifier.resetQuiz();
                 }

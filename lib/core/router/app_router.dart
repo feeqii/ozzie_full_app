@@ -114,27 +114,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (inParentFlow && isAllowedParentRoute) {
           return null;
         }
-        if (state.uri.path != '/child/home') {
-          return '/child/home';
+        if (inChildFlow) {
+          return null;
         }
-        return null;
+        return '/child/home';
       }
 
       final selectedId = selectedChildIdAsync.asData?.value;
       final hasSelected = selectedId != null && children.any((child) => child.id == selectedId);
       if (!hasSelected) {
-        if (!isAllowedParentRoute && state.uri.path != '/parent/child/select') {
-          return '/parent/child/select';
+        if (state.uri.path == '/parent/child/select') {
+          return null;
         }
-        return null;
+        if (inParentFlow && isAllowedParentRoute) {
+          return null;
+        }
+        return '/parent/child/select';
       }
 
       if (inAuthFlow || inDesignFlow) {
         return '/child/home';
       }
 
-      if (inParentFlow && !isAllowedParentRoute) {
-        return '/child/home';
+      if (inParentFlow) {
+        return isAllowedParentRoute ? null : '/child/home';
       }
 
       if (!inChildFlow) {

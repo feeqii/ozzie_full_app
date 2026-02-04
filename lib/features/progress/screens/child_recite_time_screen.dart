@@ -46,64 +46,77 @@ class ChildReciteTimeScreen extends ConsumerWidget {
       body: sessionsAsync.when(
         data: (summary) {
           final recentSessions = summary.entries.take(5).toList();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Recitation time this week', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.lg),
-              StatTile(
-                title: 'Total time',
-                value: '${summary.totalMinutes} min',
-                variant: StatTileVariant.time,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Sessions', style: AppTextStyles.caption),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('${summary.sessionCount} sessions', style: AppTextStyles.title),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text('Recent sessions', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.sm),
-              if (recentSessions.isEmpty)
-                Text('No sessions logged yet.', style: AppTextStyles.body)
-              else
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: recentSessions.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final session = recentSessions[index];
-                      final duration = session.duration;
-                      final durationLabel = duration == null
-                          ? 'In progress'
-                          : '${duration.inMinutes} min';
-                      final dateLabel = MaterialLocalizations.of(context).formatShortDate(session.startedAt);
-                      return AppCard(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(dateLabel, style: AppTextStyles.body),
-                            Text(durationLabel, style: AppTextStyles.title),
-                          ],
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Recitation time this week', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.lg),
+                        StatTile(
+                          title: 'Total time',
+                          value: '${summary.totalMinutes} min',
+                          variant: StatTileVariant.time,
                         ),
-                      );
-                    },
+                        const SizedBox(height: AppSpacing.md),
+                        AppCard(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Sessions', style: AppTextStyles.caption),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text('${summary.sessionCount} sessions', style: AppTextStyles.title),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text('Recent sessions', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (recentSessions.isEmpty)
+                          Text('No sessions logged yet.', style: AppTextStyles.body)
+                        else
+                          ListView.separated(
+                            itemCount: recentSessions.length,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                            itemBuilder: (context, index) {
+                              final session = recentSessions[index];
+                              final duration = session.duration;
+                              final durationLabel = duration == null
+                                  ? 'In progress'
+                                  : '${duration.inMinutes} min';
+                              final dateLabel =
+                                  MaterialLocalizations.of(context).formatShortDate(session.startedAt);
+                              return AppCard(
+                                padding: const EdgeInsets.all(AppSpacing.md),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(dateLabel, style: AppTextStyles.body),
+                                    Text(durationLabel, style: AppTextStyles.title),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        if (recentSessions.isNotEmpty) const SizedBox(height: AppSpacing.lg),
+                        PrimaryButton(
+                          label: 'Back to progress',
+                          onPressed: () => context.pop(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              if (recentSessions.isNotEmpty) const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'Back to progress',
-                onPressed: () => context.go(basePath),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

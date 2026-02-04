@@ -30,60 +30,69 @@ class SurahOverviewScreen extends ConsumerWidget {
       appBar: const AppAppBar(title: 'Surah Overview'),
       body: surahAsync.when(
         data: (surah) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  LabelChip(
-                      label: 'Surah ${surah.id}',
-                      background: AppColors.gamificationLight,
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        LabelChip(
+                          label: 'Surah ${surah.id}',
+                          background: AppColors.gamificationLight,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text('${surah.ayahs.length} ayahs', style: AppTextStyles.caption),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text('${surah.ayahs.length} ayahs', style: AppTextStyles.caption),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(surah.name, style: AppTextStyles.title),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(surah.translation, style: AppTextStyles.body),
+                    if (quizType != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      PrimaryButton(
+                        label: 'Continue ${quizType.label}',
+                        onPressed: () => context.push('/child/surah/$surahId/quiz/${quizType.apiValue}'),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text(surah.name, style: AppTextStyles.title),
-                const SizedBox(height: AppSpacing.xs),
-                Text(surah.translation, style: AppTextStyles.body),
-                if (quizType != null) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  PrimaryButton(
-                    label: 'Continue ${quizType.label}',
-                    onPressed: () => context.go('/child/surah/$surahId/quiz/${quizType.apiValue}'),
-                  ),
-                ],
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: surah.ayahs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-                  itemBuilder: (context, index) {
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
                     final ayah = surah.ayahs[index];
                     final isLocked = progress != null && ayah.id > progress.unlockedAyahMax;
-                    return AppCard(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Ayah ${ayah.id}', style: AppTextStyles.caption),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(ayah.arabic, style: AppTextStyles.arabicBody),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(ayah.translation, style: AppTextStyles.body),
-                          const SizedBox(height: AppSpacing.md),
-                          PrimaryButton(
-                            label: isLocked ? 'Locked' : 'Learn this ayah',
-                            isDisabled: isLocked,
-                            onPressed: isLocked
-                                ? null
-                                : () => context.go('/child/surah/$surahId/ayah/${ayah.id}'),
-                          ),
-                        ],
+                    final isLast = index == surah.ayahs.length - 1;
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
+                      child: AppCard(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Ayah ${ayah.id}', style: AppTextStyles.caption),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(ayah.arabic, style: AppTextStyles.arabicBody),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(ayah.translation, style: AppTextStyles.body),
+                            const SizedBox(height: AppSpacing.md),
+                            PrimaryButton(
+                              label: isLocked ? 'Locked' : 'Learn this ayah',
+                              isDisabled: isLocked,
+                              onPressed: isLocked
+                                  ? null
+                                  : () => context.push('/child/surah/$surahId/ayah/${ayah.id}'),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
+                  childCount: surah.ayahs.length,
                 ),
               ),
             ],

@@ -62,54 +62,66 @@ class ChildProgressHomeScreen extends ConsumerWidget {
       appBar: const AppAppBar(title: 'Progress'),
       body: summaryAsync.when(
         data: (summary) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                childName == null ? 'Your progress' : 'Progress for $childName',
-                style: AppTextStyles.title,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text('Track streaks, score, and recitation time.', style: AppTextStyles.body),
-              const SizedBox(height: AppSpacing.lg),
-              StatTile(
-                title: 'Streak',
-                value: '${summary.streak.currentStreak} days',
-                variant: StatTileVariant.streak,
-                onTap: () => context.go('$basePath/streak'),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              StatTile(
-                title: 'Recite time',
-                value: '${summary.sessions.totalMinutes} min',
-                variant: StatTileVariant.time,
-                onTap: () => context.go('$basePath/time'),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              StatTile(
-                title: 'Score',
-                value: '${summary.score.averageScore}%',
-                variant: StatTileVariant.score,
-                onTap: () => context.go('$basePath/score'),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Best streak', style: AppTextStyles.caption),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('${summary.streak.bestStreak} days', style: AppTextStyles.title),
-                  ],
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          childName == null ? 'Your progress' : 'Progress for $childName',
+                          style: AppTextStyles.title,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text('Track streaks, score, and recitation time.', style: AppTextStyles.body),
+                        const SizedBox(height: AppSpacing.lg),
+                        StatTile(
+                          title: 'Streak',
+                          value: '${summary.streak.currentStreak} days',
+                          variant: StatTileVariant.streak,
+                          onTap: () => context.push('$basePath/streak'),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        StatTile(
+                          title: 'Recite time',
+                          value: '${summary.sessions.totalMinutes} min',
+                          variant: StatTileVariant.time,
+                          onTap: () => context.push('$basePath/time'),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        StatTile(
+                          title: 'Score',
+                          value: '${summary.score.averageScore}%',
+                          variant: StatTileVariant.score,
+                          onTap: () => context.push('$basePath/score'),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AppCard(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Best streak', style: AppTextStyles.caption),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text('${summary.streak.bestStreak} days', style: AppTextStyles.title),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        PrimaryButton(
+                          label: 'Back',
+                          onPressed: () => context.pop(),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              PrimaryButton(
-                label: 'Back',
-                onPressed: () => context.go(returnRoute),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

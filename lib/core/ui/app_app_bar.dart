@@ -9,11 +9,13 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.showBack = true,
+    this.fallbackRoute,
     this.actions,
   });
 
   final String title;
   final bool showBack;
+  final String? fallbackRoute;
   final List<Widget>? actions;
 
   @override
@@ -24,9 +26,14 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: () {
-                if (GoRouter.of(context).canPop()) {
+                final router = GoRouter.of(context);
+                if (router.canPop()) {
                   context.pop();
+                  return;
                 }
+                final location = GoRouterState.of(context).uri.path;
+                final target = fallbackRoute ?? _fallbackFor(location);
+                context.go(target);
               },
             )
           : null,
@@ -39,4 +46,14 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  String _fallbackFor(String location) {
+    if (location.startsWith('/auth')) {
+      return '/auth/entry';
+    }
+    if (location.startsWith('/parent')) {
+      return '/parent/dashboard';
+    }
+    return '/child/home';
+  }
 }

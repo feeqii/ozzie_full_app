@@ -26,7 +26,7 @@ class SelectChildScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.dashboard_outlined),
-            onPressed: () => context.go('/parent/dashboard'),
+            onPressed: () => context.push('/parent/dashboard'),
           ),
         ],
       ),
@@ -37,40 +37,55 @@ class SelectChildScreen extends ConsumerWidget {
               title: 'No children yet',
               message: 'Add your child to begin their recitation journey.',
               buttonLabel: 'Add child',
-              onPressed: () => context.go('/parent/child/add'),
+              onPressed: () => context.push('/parent/child/add'),
             );
           }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Select a child', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: children.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-                  itemBuilder: (context, index) {
-                    final child = children[index];
-                    return ChildProfileCard(
-                      name: child.name,
-                      subtitle: 'Tap to continue',
-                      onTap: () async {
-                        await ref.read(selectedChildIdProvider.notifier).selectChild(child.id);
-                        if (context.mounted) {
-                          context.go('/child/home');
-                        }
-                      },
-                    );
-                  },
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Select a child', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.lg),
+                        ...children
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: entry.key == children.length - 1 ? 0 : AppSpacing.md,
+                                ),
+                                child: ChildProfileCard(
+                                  name: entry.value.name,
+                                  subtitle: 'Tap to continue',
+                                  onTap: () async {
+                                    await ref
+                                        .read(selectedChildIdProvider.notifier)
+                                        .selectChild(entry.value.id);
+                                    if (context.mounted) {
+                                      context.push('/child/home');
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                        const Spacer(),
+                        PrimaryButton(
+                          label: 'Add child',
+                          onPressed: () => context.push('/parent/child/add'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'Add child',
-                onPressed: () => context.go('/parent/child/add'),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

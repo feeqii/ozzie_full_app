@@ -80,10 +80,10 @@ class ChildHomeScreen extends ConsumerWidget {
                             const SizedBox(height: AppSpacing.sm),
                             Text(surah.summary, style: AppTextStyles.caption),
                             const SizedBox(height: AppSpacing.md),
-                            PrimaryButton(
-                              label: 'View overview',
-                              onPressed: () => context.go('/child/surah/${surah.id}'),
-                            ),
+                          PrimaryButton(
+                            label: 'View overview',
+                            onPressed: () => context.push('/child/surah/${surah.id}'),
+                          ),
                           ],
                         ),
                       ),
@@ -107,7 +107,7 @@ class ChildHomeScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.lg),
                 PrimaryButton(
                   label: 'View progress',
-                  onPressed: () => context.go('/child/progress'),
+                  onPressed: () => context.push('/child/progress'),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 SecondaryButton(

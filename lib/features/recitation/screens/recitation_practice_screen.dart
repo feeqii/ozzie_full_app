@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -19,7 +20,7 @@ import '../models/recitation_state.dart';
 import '../providers/recitation_controller.dart';
 import '../../quiz/models/quiz_models.dart';
 
-class RecitationPracticeScreen extends ConsumerWidget {
+class RecitationPracticeScreen extends ConsumerStatefulWidget {
   const RecitationPracticeScreen({
     super.key,
     required this.surahId,
@@ -30,7 +31,29 @@ class RecitationPracticeScreen extends ConsumerWidget {
   final int ayahId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RecitationPracticeScreen> createState() => _RecitationPracticeScreenState();
+}
+
+class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScreen> {
+  bool _didRequestPermission = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _didRequestPermission) {
+        return;
+      }
+      _didRequestPermission = true;
+      final params = RecitationParams(surahId: widget.surahId, ayahId: widget.ayahId);
+      ref.read(recitationControllerProvider(params).notifier).ensureMicPermission();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surahId = widget.surahId;
+    final ayahId = widget.ayahId;
     final surahAsync = ref.watch(surahContentProvider(surahId));
     final params = RecitationParams(surahId: surahId, ayahId: ayahId);
     final controller = ref.watch(
@@ -55,6 +78,30 @@ class RecitationPracticeScreen extends ConsumerWidget {
           ),
         );
       }
+      if (previous?.showMicSettingsPrompt != next.showMicSettingsPrompt && next.showMicSettingsPrompt) {
+        ModalSheetTrigger.show(
+          context,
+          sheet: ModalSheet(
+            title: 'Microphone access required',
+            message: 'Enable the microphone in Settings to record your recitation.',
+            variant: ModalSheetVariant.info,
+            primaryAction: PrimaryButton(
+              label: 'Open Settings',
+              onPressed: () async {
+                await openAppSettings();
+                if (mounted) {
+                  context.pop();
+                }
+              },
+            ),
+            secondaryAction: PrimaryButton(
+              label: 'Not now',
+              onPressed: () => context.pop(),
+            ),
+          ),
+        );
+        notifier.clearMicPermissionPrompt();
+      }
       if (previous?.rewardEvent != next.rewardEvent && next.rewardEvent != null) {
         final args = RewardScreenArgs(
           event: next.rewardEvent!,
@@ -64,7 +111,7 @@ class RecitationPracticeScreen extends ConsumerWidget {
           secondaryRoute: '/child/home',
         );
         notifier.clearReward();
-        context.go('/child/reward', extra: args);
+        context.push('/child/reward', extra: args);
       }
       if (previous?.stage != next.stage && next.stage == RecitationStage.gateToQuiz) {
         final quizType = quizTypeFromGate(next.nextGate);
@@ -79,7 +126,7 @@ class RecitationPracticeScreen extends ConsumerWidget {
               label: 'Continue',
               onPressed: () {
                 context.pop();
-                context.go(route);
+                context.push(route);
               },
             ),
           ),
@@ -94,7 +141,7 @@ class RecitationPracticeScreen extends ConsumerWidget {
             variant: ModalSheetVariant.info,
             primaryAction: PrimaryButton(
               label: 'Back to learn',
-              onPressed: () => context.go('/child/surah/$surahId/ayah/$ayahId'),
+              onPressed: () => context.pop(),
             ),
           ),
         );
@@ -120,93 +167,105 @@ class RecitationPracticeScreen extends ConsumerWidget {
       body: surahAsync.when(
         data: (surah) {
           final ayah = surah.ayahs.firstWhere((item) => item.id == ayahId, orElse: () => surah.ayahs.first);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  LabelChip(label: 'Surah $surahId'),
-                  const SizedBox(width: AppSpacing.sm),
-                  LabelChip(label: 'Ayah $ayahId'),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  children: [
-                    Text(
-                      controller.shouldBlurVerse
-                          ? _blurText(ayah.arabic)
-                          : ayah.arabic,
-                      style: AppTextStyles.arabicTitle,
-                      textAlign: TextAlign.center,
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            LabelChip(label: 'Surah $surahId'),
+                            const SizedBox(width: AppSpacing.sm),
+                            LabelChip(label: 'Ayah $ayahId'),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppCard(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            children: [
+                              Text(
+                                controller.shouldBlurVerse ? _blurText(ayah.arabic) : ayah.arabic,
+                                style: AppTextStyles.arabicTitle,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(ayah.translation, style: AppTextStyles.body, textAlign: TextAlign.center),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        if (controller.attemptsLeftToday != null)
+                          AlertBanner(
+                            message: '${controller.attemptsLeftToday} attempts left today',
+                            variant: AlertBannerVariant.warning,
+                          ),
+                        const SizedBox(height: AppSpacing.lg),
+                        RecorderModule(
+                          state: _mapRecorderState(controller.stage),
+                          onPrimaryAction: () {
+                            switch (controller.stage) {
+                              case RecitationStage.idle:
+                                notifier.setRecording();
+                                break;
+                              case RecitationStage.recording:
+                                notifier.stopRecording();
+                                break;
+                              case RecitationStage.review:
+                                notifier.submitRecording();
+                                break;
+                              case RecitationStage.uploading:
+                              case RecitationStage.feedbackSuccess:
+                              case RecitationStage.feedbackFail:
+                              case RecitationStage.interventionRequired:
+                              case RecitationStage.lockedOut:
+                              case RecitationStage.gateToQuiz:
+                                break;
+                            }
+                          },
+                          onSecondaryAction: () {
+                            notifier.playRecording();
+                          },
+                          durationLabel: controller.durationLabel,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          controller.resultSummary(),
+                          style: AppTextStyles.body,
+                          textAlign: TextAlign.center,
+                        ),
+                        const Spacer(),
+                        if (controller.stage == RecitationStage.feedbackSuccess ||
+                            controller.stage == RecitationStage.feedbackFail)
+                          PrimaryButton(
+                            label: 'Practice again',
+                            onPressed: () => notifier.setRecording(),
+                          ),
+                        if (controller.stage == RecitationStage.review) ...[
+                          PrimaryButton(
+                            label: 'Play recording',
+                            onPressed: () => notifier.playRecording(),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                        ],
+                        if (controller.stage == RecitationStage.feedbackSuccess ||
+                            controller.stage == RecitationStage.feedbackFail)
+                          const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
+                          label: 'Back to learn',
+                          onPressed: () => context.pop(),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(ayah.translation, style: AppTextStyles.body, textAlign: TextAlign.center),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (controller.attemptsLeftToday != null)
-                AlertBanner(
-                  message: '${controller.attemptsLeftToday} attempts left today',
-                  variant: AlertBannerVariant.warning,
-                ),
-              const SizedBox(height: AppSpacing.lg),
-              RecorderModule(
-                state: _mapRecorderState(controller.stage),
-                onPrimaryAction: () {
-                  switch (controller.stage) {
-                    case RecitationStage.idle:
-                      notifier.setRecording();
-                      break;
-                    case RecitationStage.recording:
-                      notifier.stopRecording();
-                      break;
-                    case RecitationStage.review:
-                      notifier.submitRecording();
-                      break;
-                    case RecitationStage.uploading:
-                    case RecitationStage.feedbackSuccess:
-                    case RecitationStage.feedbackFail:
-                    case RecitationStage.interventionRequired:
-                    case RecitationStage.lockedOut:
-                    case RecitationStage.gateToQuiz:
-                      break;
-                  }
-                },
-                onSecondaryAction: () {
-                  notifier.playRecording();
-                },
-                durationLabel: controller.durationLabel,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                controller.resultSummary(),
-                style: AppTextStyles.body,
-                textAlign: TextAlign.center,
-              ),
-              const Spacer(),
-              if (controller.stage == RecitationStage.feedbackSuccess || controller.stage == RecitationStage.feedbackFail)
-                PrimaryButton(
-                  label: 'Practice again',
-                  onPressed: () => notifier.setRecording(),
-                ),
-              if (controller.stage == RecitationStage.review) ...[
-                PrimaryButton(
-                  label: 'Play recording',
-                  onPressed: () => notifier.playRecording(),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-              ],
-              if (controller.stage == RecitationStage.feedbackSuccess || controller.stage == RecitationStage.feedbackFail)
-                const SizedBox(height: AppSpacing.sm),
-              SecondaryButton(
-                label: 'Back to learn',
-                onPressed: () => context.go('/child/surah/$surahId/ayah/$ayahId'),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

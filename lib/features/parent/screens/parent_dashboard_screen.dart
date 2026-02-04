@@ -23,43 +23,60 @@ class ParentDashboardScreen extends ConsumerWidget {
       appBar: const AppAppBar(title: 'Parent Dashboard'),
       body: childrenAsync.when(
         data: (children) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Child summaries', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: children.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-                  itemBuilder: (context, index) {
-                    final child = children[index];
-                    final progressAsync = ref.watch(childProgressSummaryProvider(child.id));
-                    final subtitle = progressAsync.when(
-                      data: (summary) =>
-                          '${summary.streak.currentStreak} day streak · ${summary.score.averageScore}% avg · ${summary.sessions.totalMinutes} min',
-                      loading: () => 'Loading progress...',
-                      error: (_, __) => 'Progress unavailable',
-                    );
-                    return ChildProfileCard(
-                      name: child.name,
-                      subtitle: subtitle,
-                      onTap: () => context.go('/parent/child/${child.id}/progress'),
-                    );
-                  },
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Child summaries', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.lg),
+                        ...children
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) {
+                                final child = entry.value;
+                                final progressAsync =
+                                    ref.watch(childProgressSummaryProvider(child.id));
+                                final subtitle = progressAsync.when(
+                                  data: (summary) =>
+                                      '${summary.streak.currentStreak} day streak · ${summary.score.averageScore}% avg · ${summary.sessions.totalMinutes} min',
+                                  loading: () => 'Loading progress...',
+                                  error: (_, __) => 'Progress unavailable',
+                                );
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: entry.key == children.length - 1 ? 0 : AppSpacing.md,
+                                  ),
+                                  child: ChildProfileCard(
+                                    name: child.name,
+                                    subtitle: subtitle,
+                                    onTap: () => context.push('/parent/child/${child.id}/progress'),
+                                  ),
+                                );
+                              },
+                            ),
+                        const Spacer(),
+                        PrimaryButton(
+                          label: 'Add child',
+                          onPressed: () => context.push('/parent/child/add'),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
+                          label: 'Select child for practice',
+                          onPressed: () => context.push('/parent/child/select'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'Add child',
-                onPressed: () => context.go('/parent/child/add'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SecondaryButton(
-                label: 'Select child for practice',
-                onPressed: () => context.go('/parent/child/select'),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

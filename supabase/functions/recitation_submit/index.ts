@@ -22,12 +22,13 @@ const corsHeaders = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const serviceRoleKey =
+  Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const scoringUrl = Deno.env.get("SCORING_API_URL");
 const scoringApiKey = Deno.env.get("SCORING_API_KEY");
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  throw new Error("Missing SUPABASE_URL or service role key");
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);

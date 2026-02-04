@@ -46,60 +46,73 @@ class ChildScoreScreen extends ConsumerWidget {
       body: scoreAsync.when(
         data: (summary) {
           final recentScores = summary.entries.take(5).toList();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Score overview', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.lg),
-              StatTile(
-                title: 'Average score',
-                value: '${summary.averageScore}%',
-                variant: StatTileVariant.score,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Latest score', style: AppTextStyles.caption),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('${summary.latestScore}%', style: AppTextStyles.title),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text('Recent attempts', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.sm),
-              if (recentScores.isEmpty)
-                Text('No attempts logged yet.', style: AppTextStyles.body)
-              else
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: recentScores.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final entry = recentScores[index];
-                      final dateLabel = MaterialLocalizations.of(context).formatShortDate(entry.createdAt);
-                      return AppCard(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(dateLabel, style: AppTextStyles.body),
-                            Text('${entry.score}%', style: AppTextStyles.title),
-                          ],
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Score overview', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.lg),
+                        StatTile(
+                          title: 'Average score',
+                          value: '${summary.averageScore}%',
+                          variant: StatTileVariant.score,
                         ),
-                      );
-                    },
+                        const SizedBox(height: AppSpacing.md),
+                        AppCard(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Latest score', style: AppTextStyles.caption),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text('${summary.latestScore}%', style: AppTextStyles.title),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text('Recent attempts', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (recentScores.isEmpty)
+                          Text('No attempts logged yet.', style: AppTextStyles.body)
+                        else
+                          ListView.separated(
+                            itemCount: recentScores.length,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                            itemBuilder: (context, index) {
+                              final entry = recentScores[index];
+                              final dateLabel = MaterialLocalizations.of(context)
+                                  .formatShortDate(entry.createdAt);
+                              return AppCard(
+                                padding: const EdgeInsets.all(AppSpacing.md),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(dateLabel, style: AppTextStyles.body),
+                                    Text('${entry.score}%', style: AppTextStyles.title),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        if (recentScores.isNotEmpty) const SizedBox(height: AppSpacing.lg),
+                        PrimaryButton(
+                          label: 'Back to progress',
+                          onPressed: () => context.pop(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              if (recentScores.isNotEmpty) const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'Back to progress',
-                onPressed: () => context.go(basePath),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

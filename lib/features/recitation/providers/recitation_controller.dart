@@ -79,19 +79,51 @@ class RecitationController extends StateNotifier<RecitationState> {
   final AudioRecorder _recorder;
   final AudioPlayer _player;
 
+  Future<bool> ensureMicPermission({bool requestIfNeeded = true}) async {
+    final status = await Permission.microphone.status;
+    if (status.isGranted) {
+      return true;
+    }
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      state = state.copyWith(showMicSettingsPrompt: true);
+      return false;
+    }
+
+    if (!requestIfNeeded) {
+      return false;
+    }
+
+    final requested = await Permission.microphone.request();
+    if (requested.isGranted) {
+      return true;
+    }
+
+    if (requested.isPermanentlyDenied || requested.isRestricted) {
+      state = state.copyWith(showMicSettingsPrompt: true);
+    }
+    return false;
+  }
+
+  void clearMicPermissionPrompt() {
+    if (!state.showMicSettingsPrompt) {
+      return;
+    }
+    state = state.copyWith(showMicSettingsPrompt: false);
+  }
+
   Future<void> setRecording() async {
     if (state.isBusy) {
       return;
     }
 
-    final permission = await Permission.microphone.request();
-    if (!permission.isGranted) {
-      state = state.copyWith(errorMessage: 'Microphone permission is required.');
+    final hasPermission = await ensureMicPermission();
+    if (!hasPermission) {
       return;
     }
 
     if (!await _recorder.hasPermission()) {
-      state = state.copyWith(errorMessage: 'Microphone permission is required.');
+      state = state.copyWith(showMicSettingsPrompt: true);
       return;
     }
 

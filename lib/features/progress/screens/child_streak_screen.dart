@@ -48,40 +48,52 @@ class ChildStreakScreen extends ConsumerWidget {
           final lastPractice = streak.lastPracticeDate == null
               ? 'No practice yet'
               : MaterialLocalizations.of(context).formatShortDate(streak.lastPracticeDate!);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Keep the streak going!', style: AppTextStyles.title),
-              const SizedBox(height: AppSpacing.lg),
-              StatTile(
-                title: 'Current streak',
-                value: '${streak.currentStreak} days',
-                variant: StatTileVariant.streak,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              StatTile(
-                title: 'Best streak',
-                value: '${streak.bestStreak} days',
-                variant: StatTileVariant.streak,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Last practice', style: AppTextStyles.caption),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(lastPractice, style: AppTextStyles.body),
-                  ],
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Keep the streak going!', style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.lg),
+                        StatTile(
+                          title: 'Current streak',
+                          value: '${streak.currentStreak} days',
+                          variant: StatTileVariant.streak,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        StatTile(
+                          title: 'Best streak',
+                          value: '${streak.bestStreak} days',
+                          variant: StatTileVariant.streak,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AppCard(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Last practice', style: AppTextStyles.caption),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(lastPractice, style: AppTextStyles.body),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        PrimaryButton(
+                          label: 'Back to progress',
+                          onPressed: () => context.pop(),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              PrimaryButton(
-                label: 'Back to progress',
-                onPressed: () => context.go(basePath),
-              ),
-            ],
+              );
+            },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

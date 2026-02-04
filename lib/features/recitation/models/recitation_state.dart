@@ -22,6 +22,7 @@ class RecitationState {
     this.durationLabel = '0:00',
     this.isBusy = false,
     this.errorMessage,
+    this.showMicSettingsPrompt = false,
     this.score,
     this.passesRemaining,
     this.attemptsLeftToday,
@@ -42,6 +43,7 @@ class RecitationState {
   final String durationLabel;
   final bool isBusy;
   final String? errorMessage;
+  final bool showMicSettingsPrompt;
   final int? score;
   final int? passesRemaining;
   final int? attemptsLeftToday;
@@ -60,6 +62,7 @@ class RecitationState {
     bool? isBusy,
     String? errorMessage,
     bool clearError = false,
+    bool? showMicSettingsPrompt,
     int? score,
     int? passesRemaining,
     int? attemptsLeftToday,
@@ -81,6 +84,7 @@ class RecitationState {
       durationLabel: durationLabel ?? this.durationLabel,
       isBusy: isBusy ?? this.isBusy,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      showMicSettingsPrompt: showMicSettingsPrompt ?? this.showMicSettingsPrompt,
       score: score ?? this.score,
       passesRemaining: passesRemaining ?? this.passesRemaining,
       attemptsLeftToday: attemptsLeftToday ?? this.attemptsLeftToday,
