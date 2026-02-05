@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_startup_state.dart';
@@ -15,6 +18,7 @@ class AppBootstrap extends StatefulWidget {
 
 class _AppBootstrapState extends State<AppBootstrap> {
   AppStartupState _state = const AppStartupState.initial();
+  StreamSubscription<AuthState>? _authStateSubscription;
 
   @override
   void initState() {
@@ -46,7 +50,12 @@ class _AppBootstrapState extends State<AppBootstrap> {
       await Supabase.initialize(
         url: supabaseUrl,
         anonKey: anonKey,
+        httpClient: _LoggingHttpClient(
+          http.Client(),
+          () => Supabase.instance.client.auth.currentSession?.accessToken,
+        ),
       );
+      _syncFunctionsAuth(anonKey);
       setState(() {
         _state = const AppStartupState.ready();
       });
@@ -55,6 +64,33 @@ class _AppBootstrapState extends State<AppBootstrap> {
         _state = AppStartupState.error('Supabase init failed: $error');
       });
     }
+  }
+
+  void _syncFunctionsAuth(String anonKey) {
+    final client = Supabase.instance.client;
+    final session = client.auth.currentSession;
+    final token = session?.accessToken;
+    if (token != null && token.isNotEmpty) {
+      client.functions.setAuth(token);
+    } else {
+      client.functions.setAuth(anonKey);
+    }
+
+    _authStateSubscription?.cancel();
+    _authStateSubscription = client.auth.onAuthStateChange.listen((data) {
+      final nextToken = data.session?.accessToken;
+      if (nextToken != null && nextToken.isNotEmpty) {
+        client.functions.setAuth(nextToken);
+      } else {
+        client.functions.setAuth(anonKey);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -82,5 +118,30 @@ class AppBootstrapScope extends InheritedWidget {
   @override
   bool updateShouldNotify(covariant AppBootstrapScope oldWidget) {
     return state != oldWidget.state;
+  }
+}
+
+class _LoggingHttpClient extends http.BaseClient {
+  _LoggingHttpClient(this._inner, this._getAccessToken);
+
+  final http.Client _inner;
+  final String? Function() _getAccessToken;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final isFunctionCall = request.url.path.contains('/functions/v1/');
+    if (isFunctionCall) {
+      final authHeader = request.headers['Authorization'] ?? request.headers['authorization'];
+      final hasBearer = authHeader != null && authHeader.startsWith('Bearer ');
+      final token = hasBearer ? authHeader.substring('Bearer '.length) : null;
+      final sessionToken = _getAccessToken();
+      final matchesSession = token != null && sessionToken != null && token == sessionToken;
+      debugPrint(
+        '[FunctionsHTTP] ${request.method} ${request.url} '
+        'auth=${hasBearer ? 'bearer' : authHeader == null ? 'missing' : 'present'} '
+        'matchesSession=$matchesSession apikey=${request.headers.containsKey('apikey')}',
+      );
+    }
+    return _inner.send(request);
   }
 }

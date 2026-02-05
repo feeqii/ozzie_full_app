@@ -33,8 +33,14 @@ class QuizRepository {
     required QuizType quizType,
     required List<QuizAnswerItem> answers,
   }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    final headers = (accessToken != null && accessToken.isNotEmpty)
+        ? {'Authorization': 'Bearer $accessToken'}
+        : null;
+
     final response = await _client.functions.invoke(
       'quiz_submit',
+      headers: headers,
       body: {
         'child_id': childId,
         'surah_id': surahId,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -220,6 +221,7 @@ class RecitationController extends StateNotifier<RecitationState> {
         debugPrint('$_logTag Refresh failed. Forcing sign out.');
         throw const AuthException('Session expired. Please sign in again.');
       }
+      _logAccessTokenClaims(refreshed.session?.accessToken, label: 'refreshed');
 
       final apiKey = dotenv.env['OPENAI_API_KEY']?.trim();
       if (apiKey == null || apiKey.isEmpty) {
@@ -339,6 +341,43 @@ class RecitationController extends StateNotifier<RecitationState> {
     _recorder.dispose();
     _player.dispose();
     super.dispose();
+  }
+
+  void _logAccessTokenClaims(String? token, {required String label}) {
+    if (token == null || token.isEmpty) {
+      debugPrint('$_logTag token($label)=missing');
+      return;
+    }
+    final parts = token.split('.');
+    if (parts.length != 3) {
+      debugPrint('$_logTag token($label)=malformed parts=${parts.length}');
+      return;
+    }
+    try {
+      final payload = _decodeJwtPayload(parts[1]);
+      final iss = payload['iss'];
+      final aud = payload['aud'];
+      final exp = payload['exp'];
+      final iat = payload['iat'];
+      final sub = payload['sub'];
+      debugPrint('$_logTag token($label) iss=$iss aud=$aud exp=$exp iat=$iat sub=${_maskId(sub?.toString())}');
+    } catch (error) {
+      debugPrint('$_logTag token($label) decodeError=$error');
+    }
+  }
+
+  Map<String, dynamic> _decodeJwtPayload(String payload) {
+    final normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
+    final padded = normalized.padRight((normalized.length + 3) ~/ 4 * 4, '=');
+    final decoded = utf8.decode(base64.decode(padded));
+    return json.decode(decoded) as Map<String, dynamic>;
+  }
+
+  String _maskId(String? value) {
+    if (value == null || value.length < 6) {
+      return value ?? '';
+    }
+    return '${value.substring(0, 3)}...${value.substring(value.length - 3)}';
   }
 
   RewardEvent? _buildRewardEvent(Map<String, dynamic> payload, {String? nextGate}) {
