@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_client_provider.dart';
 import '../../child/providers/child_providers.dart';
@@ -205,6 +206,17 @@ class RecitationController extends StateNotifier<RecitationState> {
     state = state.copyWith(stage: RecitationStage.uploading, isBusy: true, clearError: true);
 
     try {
+      final client = Supabase.instance.client;
+      final session = client.auth.currentSession;
+      if (session == null) {
+        throw const AuthException('Session expired. Please sign in again.');
+      }
+      final refreshed = await client.auth.refreshSession();
+      if (refreshed.session == null) {
+        await client.auth.signOut();
+        throw const AuthException('Session expired. Please sign in again.');
+      }
+
       final apiKey = dotenv.env['OPENAI_API_KEY']?.trim();
       if (apiKey == null || apiKey.isEmpty) {
         throw Exception('Missing OPENAI_API_KEY. Add it to your .env file.');
@@ -290,6 +302,21 @@ class RecitationController extends StateNotifier<RecitationState> {
         stage: RecitationStage.review,
         isBusy: false,
         errorMessage: 'Audio file missing. Please record again.',
+      );
+    } on FunctionException catch (error) {
+      final message = error.status == 401
+          ? 'Session invalid. Please sign out and sign in again.'
+          : error.toString();
+      state = state.copyWith(
+        stage: RecitationStage.review,
+        isBusy: false,
+        errorMessage: message,
+      );
+    } on AuthException catch (error) {
+      state = state.copyWith(
+        stage: RecitationStage.review,
+        isBusy: false,
+        errorMessage: error.message,
       );
     } catch (error) {
       state = state.copyWith(
