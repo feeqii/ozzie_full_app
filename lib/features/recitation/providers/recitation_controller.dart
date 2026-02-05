@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -8,9 +10,12 @@ import 'package:record/record.dart';
 
 import '../../../core/supabase_client_provider.dart';
 import '../../child/providers/child_providers.dart';
+import '../../content/repo/content_repository.dart';
 import '../../rewards/models/reward_event.dart';
 import '../models/recitation_state.dart';
 import '../repo/recitation_repository.dart';
+import '../services/arabic_similarity.dart';
+import '../services/openai_transcription_service.dart';
 
 final recitationRepositoryProvider = Provider<RecitationRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
@@ -20,8 +25,12 @@ final recitationRepositoryProvider = Provider<RecitationRepository>((ref) {
 final recitationControllerProvider = StateNotifierProvider.family<RecitationController, RecitationState, RecitationParams>(
   (ref, params) {
     final repo = ref.watch(recitationRepositoryProvider);
-    final childId = params.childId ?? ref.watch(selectedChildProvider)?.id ?? '';
-    return RecitationController(repo, params.copyWith(childId: childId));
+    final selectedChild = ref.watch(selectedChildProvider);
+    final childId = params.childId ?? selectedChild?.id ?? '';
+    return RecitationController(
+      repo,
+      params.copyWith(childId: childId, birthYear: selectedChild?.birthYear),
+    );
   },
 );
 
@@ -30,21 +39,25 @@ class RecitationParams {
     required this.surahId,
     required this.ayahId,
     this.childId,
+    this.birthYear,
   });
 
   final String? childId;
   final int surahId;
   final int ayahId;
+  final int? birthYear;
 
   RecitationParams copyWith({
     String? childId,
     int? surahId,
     int? ayahId,
+    int? birthYear,
   }) {
     return RecitationParams(
       childId: childId ?? this.childId,
       surahId: surahId ?? this.surahId,
       ayahId: ayahId ?? this.ayahId,
+      birthYear: birthYear ?? this.birthYear,
     );
   }
 
@@ -56,17 +69,19 @@ class RecitationParams {
     return other is RecitationParams &&
         other.childId == childId &&
         other.surahId == surahId &&
-        other.ayahId == ayahId;
+        other.ayahId == ayahId &&
+        other.birthYear == birthYear;
   }
 
   @override
-  int get hashCode => Object.hash(childId, surahId, ayahId);
+  int get hashCode => Object.hash(childId, surahId, ayahId, birthYear);
 }
 
 class RecitationController extends StateNotifier<RecitationState> {
   RecitationController(this._repo, RecitationParams params)
       : _recorder = AudioRecorder(),
         _player = AudioPlayer(),
+        _birthYear = params.birthYear,
         super(
           RecitationState(
             childId: params.childId ?? '',
@@ -78,6 +93,10 @@ class RecitationController extends StateNotifier<RecitationState> {
   final RecitationRepository _repo;
   final AudioRecorder _recorder;
   final AudioPlayer _player;
+  final int? _birthYear;
+  final ContentRepository _contentRepository = const ContentRepository();
+  final OpenAiTranscriptionService _transcriptionService = const OpenAiTranscriptionService();
+  static const String _openAiModel = 'gpt-4o-transcribe';
 
   Future<bool> ensureMicPermission({bool requestIfNeeded = true}) async {
     final status = await Permission.microphone.status;
@@ -186,18 +205,47 @@ class RecitationController extends StateNotifier<RecitationState> {
     state = state.copyWith(stage: RecitationStage.uploading, isBusy: true, clearError: true);
 
     try {
-      final audioPath = await _repo.uploadRecitation(
+      final apiKey = dotenv.env['OPENAI_API_KEY']?.trim();
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('Missing OPENAI_API_KEY. Add it to your .env file.');
+      }
+
+      final targetArabic = await _loadArabicTarget();
+      if (targetArabic == null || targetArabic.isEmpty) {
+        throw Exception('Missing target ayah text for scoring.');
+      }
+
+      final transcript = await _transcriptionService.transcribe(
+        apiKey: apiKey,
         localPath: state.localPath!,
-        childId: state.childId,
+        model: _openAiModel,
+      );
+      final score = computeSimilarityScore(transcript, targetArabic);
+      final storagePath = _repo.buildStoragePath(
         surahId: state.surahId,
         ayahId: state.ayahId,
       );
+
+      final ageYears = _birthYear == null ? null : DateTime.now().year - _birthYear!;
+      final meta = <String, dynamic>{
+        if (ageYears != null && ageYears > 0) 'age_years': ageYears,
+      };
 
       final payload = await _repo.submitRecitation(
         childId: state.childId,
         surahId: state.surahId,
         ayahId: state.ayahId,
-        audioPath: audioPath,
+        audioPath: storagePath,
+        score: score,
+        transcript: transcript,
+        model: _openAiModel,
+        meta: meta.isEmpty ? null : meta,
+      );
+
+      unawaited(
+        _repo
+            .uploadRecitation(localPath: state.localPath!, storagePath: storagePath)
+            .catchError((_) {}),
       );
 
       final lockedUntil = payload['locked_until'] as String?;
@@ -274,5 +322,15 @@ class RecitationController extends StateNotifier<RecitationState> {
 
   void clearReward() {
     state = state.copyWith(clearReward: true);
+  }
+
+  Future<String?> _loadArabicTarget() async {
+    final content = await _contentRepository.fetchSurahContent(state.surahId);
+    for (final ayah in content.ayahs) {
+      if (ayah.id == state.ayahId) {
+        return ayah.arabic;
+      }
+    }
+    return null;
   }
 }

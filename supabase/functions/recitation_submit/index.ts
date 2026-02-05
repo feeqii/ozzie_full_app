@@ -6,6 +6,10 @@ type RecitationRequest = {
   surah_id: number;
   ayah_id: number;
   audio_path: string;
+  score?: number;
+  transcript?: string | null;
+  model?: string | null;
+  meta?: Record<string, unknown> | null;
 };
 
 type ScoringResponse = {
@@ -191,32 +195,61 @@ Deno.serve(async (req) => {
 
     const allowDetailedFeedback = (detailedUsedToday ?? 0) < realtimeFeedbackCap;
 
-    if (!scoringUrl) {
-      return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
+    const clientScore = typeof payload?.score === "number" ? Number(payload.score) : null;
+    const clientTranscript = payload?.transcript ?? null;
+    const clientModel = payload?.model ?? null;
+    const clientMeta = payload?.meta ?? null;
+
+    let scoreSource = "server";
+    let score = 0;
+    let passed = false;
+    let transcript: string | null = clientTranscript;
+    let mistakeType: string | null = null;
+    let meta: Record<string, unknown> | null = null;
+
+    if (clientScore !== null && Number.isFinite(clientScore)) {
+      scoreSource = "client";
+      score = Math.max(0, Math.min(100, clientScore));
+      passed = score >= passThreshold;
+      meta = clientMeta;
+    } else {
+      if (!scoringUrl) {
+        return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
+      }
+
+      const scoringResponse = await fetch(scoringUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          audio_path,
+          surah_id,
+          ayah_id,
+          child_id,
+        }),
+      });
+
+      if (!scoringResponse.ok) {
+        return jsonResponse(502, { error: "Scoring service failed" });
+      }
+
+      const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
+      score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
+      passed =
+        typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
+      transcript = scoringPayload.transcript ?? transcript;
+      mistakeType = scoringPayload.mistake_type ?? null;
+      meta = scoringPayload.meta ?? null;
     }
 
-    const scoringResponse = await fetch(scoringUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        audio_path,
-        surah_id,
-        ayah_id,
-        child_id,
-      }),
-    });
-
-    if (!scoringResponse.ok) {
-      return jsonResponse(502, { error: "Scoring service failed" });
-    }
-
-    const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
-    const score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
-    const passed =
-      typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
+    const combinedMeta: Record<string, unknown> = {
+      ...(meta ?? {}),
+      ...(clientMeta ?? {}),
+      score_source: scoreSource,
+      ...(clientModel ? { model: clientModel } : {}),
+    };
 
     const attemptNumberToday = attemptsToday + 1;
 
@@ -228,10 +261,10 @@ Deno.serve(async (req) => {
       score,
       passed,
       detailed_feedback_used: allowDetailedFeedback,
-      mistake_type: scoringPayload.mistake_type ?? null,
+      mistake_type: mistakeType,
       audio_path,
-      transcript: scoringPayload.transcript ?? null,
-      meta: scoringPayload.meta ?? null,
+      transcript: transcript ?? null,
+      meta: combinedMeta,
     });
 
     if (insertAttemptError) {
