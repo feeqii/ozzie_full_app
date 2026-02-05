@@ -10,6 +10,7 @@ import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_client_provider.dart';
+import '../../child/models/child_profile.dart';
 import '../../child/providers/child_providers.dart';
 import '../../content/repo/content_repository.dart';
 import '../../rewards/models/reward_event.dart';
@@ -26,11 +27,12 @@ final recitationRepositoryProvider = Provider<RecitationRepository>((ref) {
 final recitationControllerProvider = StateNotifierProvider.family<RecitationController, RecitationState, RecitationParams>(
   (ref, params) {
     final repo = ref.watch(recitationRepositoryProvider);
-    final selectedChild = ref.watch(selectedChildProvider);
-    final childId = params.childId ?? selectedChild?.id ?? '';
+    final selectedChildGetter = () => ref.read(selectedChildProvider);
+    final childId = params.childId ?? selectedChildGetter()?.id ?? '';
     return RecitationController(
       repo,
-      params.copyWith(childId: childId, birthYear: selectedChild?.birthYear),
+      params.copyWith(childId: childId),
+      selectedChildGetter,
     );
   },
 );
@@ -40,25 +42,21 @@ class RecitationParams {
     required this.surahId,
     required this.ayahId,
     this.childId,
-    this.birthYear,
   });
 
   final String? childId;
   final int surahId;
   final int ayahId;
-  final int? birthYear;
 
   RecitationParams copyWith({
     String? childId,
     int? surahId,
     int? ayahId,
-    int? birthYear,
   }) {
     return RecitationParams(
       childId: childId ?? this.childId,
       surahId: surahId ?? this.surahId,
       ayahId: ayahId ?? this.ayahId,
-      birthYear: birthYear ?? this.birthYear,
     );
   }
 
@@ -70,19 +68,19 @@ class RecitationParams {
     return other is RecitationParams &&
         other.childId == childId &&
         other.surahId == surahId &&
-        other.ayahId == ayahId &&
-        other.birthYear == birthYear;
+        other.ayahId == ayahId;
   }
 
   @override
-  int get hashCode => Object.hash(childId, surahId, ayahId, birthYear);
+  int get hashCode => Object.hash(childId, surahId, ayahId);
 }
 
+typedef SelectedChildGetter = ChildProfile? Function();
+
 class RecitationController extends StateNotifier<RecitationState> {
-  RecitationController(this._repo, RecitationParams params)
+  RecitationController(this._repo, RecitationParams params, this._selectedChild)
       : _recorder = AudioRecorder(),
         _player = AudioPlayer(),
-        _birthYear = params.birthYear,
         super(
           RecitationState(
             childId: params.childId ?? '',
@@ -94,7 +92,7 @@ class RecitationController extends StateNotifier<RecitationState> {
   final RecitationRepository _repo;
   final AudioRecorder _recorder;
   final AudioPlayer _player;
-  final int? _birthYear;
+  final SelectedChildGetter _selectedChild;
   final ContentRepository _contentRepository = const ContentRepository();
   final OpenAiTranscriptionService _transcriptionService = const OpenAiTranscriptionService();
   static const String _openAiModel = 'gpt-4o-transcribe';
@@ -198,7 +196,8 @@ class RecitationController extends StateNotifier<RecitationState> {
       state = state.copyWith(errorMessage: 'Record your recitation first.');
       return;
     }
-    if (state.childId.isEmpty) {
+    final effectiveChildId = state.childId.isNotEmpty ? state.childId : _selectedChild()?.id ?? '';
+    if (effectiveChildId.isEmpty) {
       state = state.copyWith(errorMessage: 'Select a child profile to continue.');
       return;
     }
@@ -238,13 +237,13 @@ class RecitationController extends StateNotifier<RecitationState> {
         ayahId: state.ayahId,
       );
 
-      final ageYears = _birthYear == null ? null : DateTime.now().year - _birthYear!;
+      final ageYears = _resolveChildAgeYears();
       final meta = <String, dynamic>{
         if (ageYears != null && ageYears > 0) 'age_years': ageYears,
       };
 
       final payload = await _repo.submitRecitation(
-        childId: state.childId,
+        childId: effectiveChildId,
         surahId: state.surahId,
         ayahId: state.ayahId,
         audioPath: storagePath,
@@ -349,6 +348,16 @@ class RecitationController extends StateNotifier<RecitationState> {
 
   void clearReward() {
     state = state.copyWith(clearReward: true);
+  }
+
+  int? _resolveChildAgeYears() {
+    final child = _selectedChild();
+    final birthYear = child?.birthYear;
+    if (birthYear == null) {
+      return null;
+    }
+    final age = DateTime.now().year - birthYear;
+    return age > 0 ? age : null;
   }
 
   Future<String?> _loadArabicTarget() async {
