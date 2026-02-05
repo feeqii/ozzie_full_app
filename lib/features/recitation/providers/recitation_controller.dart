@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -96,6 +97,7 @@ class RecitationController extends StateNotifier<RecitationState> {
   final ContentRepository _contentRepository = const ContentRepository();
   final OpenAiTranscriptionService _transcriptionService = const OpenAiTranscriptionService();
   static const String _openAiModel = 'gpt-4o-transcribe';
+  static const String _logTag = '[RecitationSubmit]';
 
   Future<bool> ensureMicPermission({bool requestIfNeeded = true}) async {
     final status = await Permission.microphone.status;
@@ -208,11 +210,14 @@ class RecitationController extends StateNotifier<RecitationState> {
       final client = Supabase.instance.client;
       final session = client.auth.currentSession;
       if (session == null) {
+        debugPrint('$_logTag No session. childId=${state.childId} surah=${state.surahId} ayah=${state.ayahId}');
         throw const AuthException('Session expired. Please sign in again.');
       }
+      _logSessionState(session);
       final refreshed = await client.auth.refreshSession();
       if (refreshed.session == null) {
         await client.auth.signOut();
+        debugPrint('$_logTag Refresh failed. Forcing sign out.');
         throw const AuthException('Session expired. Please sign in again.');
       }
 
@@ -303,6 +308,7 @@ class RecitationController extends StateNotifier<RecitationState> {
         errorMessage: 'Audio file missing. Please record again.',
       );
     } on FunctionException catch (error) {
+      debugPrint('$_logTag FunctionException status=${error.status} details=${error.details}');
       final message = error.status == 401
           ? 'Session invalid. Please sign out and sign in again.'
           : error.toString();
@@ -312,12 +318,14 @@ class RecitationController extends StateNotifier<RecitationState> {
         errorMessage: message,
       );
     } on AuthException catch (error) {
+      debugPrint('$_logTag AuthException message=${error.message}');
       state = state.copyWith(
         stage: RecitationStage.review,
         isBusy: false,
         errorMessage: error.message,
       );
     } catch (error) {
+      debugPrint('$_logTag Unexpected error: $error');
       state = state.copyWith(
         stage: RecitationStage.review,
         isBusy: false,
@@ -358,6 +366,22 @@ class RecitationController extends StateNotifier<RecitationState> {
     }
     final age = DateTime.now().year - birthYear;
     return age > 0 ? age : null;
+  }
+
+  void _logSessionState(Session session) {
+    final userId = session.user.id;
+    final expiresAt = session.expiresAt;
+    final aud = session.user.aud;
+    final hasRefresh = session.refreshToken != null && session.refreshToken!.isNotEmpty;
+    final supabaseUrl = dotenv.env['SUPABASE_URL']?.trim();
+    debugPrint(
+      '$_logTag session user=${_mask(userId)} aud=$aud expiresAt=$expiresAt refresh=$hasRefresh url=$supabaseUrl',
+    );
+  }
+
+  String _mask(String value) {
+    if (value.length <= 6) return value;
+    return '${value.substring(0, 3)}...${value.substring(value.length - 3)}';
   }
 
   Future<String?> _loadArabicTarget() async {
