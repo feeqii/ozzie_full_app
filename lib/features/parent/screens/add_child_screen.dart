@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
@@ -95,6 +97,95 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
     }
   }
 
+  Future<void> _showYearPicker() async {
+    final years = _yearOptions;
+    var initialIndex = 0;
+    if (_selectedYear != null) {
+      final existingIndex = years.indexOf(_selectedYear!);
+      if (existingIndex >= 0) {
+        initialIndex = existingIndex;
+      }
+    }
+
+    var tempYear = years[initialIndex];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: 320,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select year',
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textNavy,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _selectedYear = tempYear);
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          'Done',
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.accentPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: CupertinoPicker(
+                    scrollController: FixedExtentScrollController(
+                      initialItem: initialIndex,
+                    ),
+                    itemExtent: 40,
+                    onSelectedItemChanged: (index) {
+                      tempYear = years[index];
+                    },
+                    children: years
+                        .map(
+                          (year) => Center(
+                            child: Text(
+                              year.toString(),
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textNavy,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -122,19 +213,41 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     Text('Child year of birth', style: AppTextStyles.caption),
                     const SizedBox(height: AppSpacing.sm),
-                    DropdownButtonFormField<int>(
-                      initialValue: _selectedYear,
-                      items: _yearOptions
-                          .map(
-                            (year) => DropdownMenuItem(
-                              value: year,
-                              child: Text(year.toString()),
+                    InkWell(
+                      onTap: _isLoading ? null : _showYearPicker,
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                          vertical: AppSpacing.lg,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                          border: Border.all(
+                            color: AppColors.progressTrack,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _selectedYear?.toString() ?? 'Select year',
+                                style: AppTextStyles.body.copyWith(
+                                  color: _selectedYear == null
+                                      ? AppColors.textMuted
+                                      : AppColors.textNavy,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (value) => setState(() => _selectedYear = value),
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.textMuted,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -189,6 +302,10 @@ class _GenderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = isSelected ? AppColors.textNavy : AppColors.white;
+    final borderColor = isSelected ? AppColors.textNavy : AppColors.progressTrack;
+    final textColor = isSelected ? AppColors.white : AppColors.textNavy;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -197,17 +314,17 @@ class _GenderButton extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.textNavy : AppColors.progressTrack,
+            color: borderColor,
             width: 1.2,
           ),
-          color: AppColors.white,
+          color: backgroundColor,
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: AppTextStyles.body.copyWith(
             fontWeight: FontWeight.w600,
-            color: AppColors.textNavy,
+            color: textColor,
           ),
         ),
       ),
