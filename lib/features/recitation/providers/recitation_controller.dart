@@ -237,6 +237,7 @@ class RecitationController extends StateNotifier<RecitationState> {
         apiKey: apiKey,
         localPath: state.localPath!,
         model: _openAiModel,
+        prompt: 'Quran recitation (Arabic). Expected verse: $targetArabic',
       );
       final score = computeSimilarityScore(transcript, targetArabic);
       final storagePath = _repo.buildStoragePath(

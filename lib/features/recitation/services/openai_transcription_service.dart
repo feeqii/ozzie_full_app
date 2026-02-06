@@ -12,6 +12,7 @@ class OpenAiTranscriptionService {
     required String apiKey,
     required String localPath,
     required String model,
+    String? prompt,
   }) async {
     final file = File(localPath);
     if (!await file.exists()) {
@@ -23,6 +24,14 @@ class OpenAiTranscriptionService {
       ..fields['model'] = model
       ..fields['response_format'] = 'json'
       ..fields['language'] = 'ar'
+      ..fields.addAll(
+        (prompt != null && prompt.trim().isNotEmpty)
+            ? <String, String>{
+                // Improves transcription stability for short recitations by providing context.
+                'prompt': prompt.trim(),
+              }
+            : const <String, String>{},
+      )
       ..files.add(await http.MultipartFile.fromPath('file', localPath));
 
     final streamed = await request.send();
