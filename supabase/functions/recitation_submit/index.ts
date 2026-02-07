@@ -6,6 +6,7 @@ type RecitationRequest = {
   surah_id: number;
   ayah_id: number;
   audio_path: string;
+  // Deprecated: client-supplied scoring is no longer trusted.
   score?: number;
   transcript?: string | null;
   model?: string | null;
@@ -162,7 +163,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (attemptsToday >= dailyAttemptCap) {
+    const todayStart = new Date(`${today}T00:00:00.000Z`);
+    const tomorrowStart = startOfTomorrowUtc(new Date());
+
+    // Enforce "max failures per day" (PDF spec) rather than max total attempts.
+    const { count: failsUsedToday, error: failsError } = await supabaseAdmin
+      .from("recitation_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("child_id", child_id)
+      .eq("surah_id", surah_id)
+      .eq("ayah_id", ayah_id)
+      .eq("passed", false)
+      .gte("created_at", todayStart.toISOString())
+      .lt("created_at", tomorrowStart.toISOString());
+
+    if (failsError) {
+      return jsonResponse(500, { error: "Failed to load failure count" });
+    }
+
+    if ((failsUsedToday ?? 0) >= dailyAttemptCap) {
       const newLockedUntil = startOfTomorrowUtc(new Date());
       await supabaseAdmin
         .from("ayah_progress")
@@ -182,9 +201,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const todayStart = new Date(`${today}T00:00:00.000Z`);
-    const tomorrowStart = startOfTomorrowUtc(new Date());
-
     const { count: detailedUsedToday } = await supabaseAdmin
       .from("recitation_attempts")
       .select("id", { count: "exact", head: true })
@@ -193,62 +209,55 @@ Deno.serve(async (req) => {
       .gte("created_at", todayStart.toISOString())
       .lt("created_at", tomorrowStart.toISOString());
 
-    const allowDetailedFeedback = (detailedUsedToday ?? 0) < realtimeFeedbackCap;
-
-    const clientScore = typeof payload?.score === "number" ? Number(payload.score) : null;
-    const clientTranscript = payload?.transcript ?? null;
-    const clientModel = payload?.model ?? null;
     const clientMeta = payload?.meta ?? null;
 
-    let scoreSource = "server";
     let score = 0;
     let passed = false;
-    let transcript: string | null = clientTranscript;
+    let transcript: string | null = null;
     let mistakeType: string | null = null;
     let meta: Record<string, unknown> | null = null;
 
-    if (clientScore !== null && Number.isFinite(clientScore)) {
-      scoreSource = "client";
-      score = Math.max(0, Math.min(100, clientScore));
-      passed = score >= passThreshold;
-      meta = clientMeta;
-    } else {
-      if (!scoringUrl) {
-        return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
-      }
-
-      const scoringResponse = await fetch(scoringUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          audio_path,
-          surah_id,
-          ayah_id,
-          child_id,
-        }),
-      });
-
-      if (!scoringResponse.ok) {
-        return jsonResponse(502, { error: "Scoring service failed" });
-      }
-
-      const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
-      score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
-      passed =
-        typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
-      transcript = scoringPayload.transcript ?? transcript;
-      mistakeType = scoringPayload.mistake_type ?? null;
-      meta = scoringPayload.meta ?? null;
+    if (!scoringUrl) {
+      return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
     }
+
+    const scoringResponse = await fetch(scoringUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        audio_path,
+        surah_id,
+        ayah_id,
+        child_id,
+      }),
+    });
+
+    if (!scoringResponse.ok) {
+      return jsonResponse(502, { error: "Scoring service failed" });
+    }
+
+    const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
+    score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
+    passed = typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
+    transcript = scoringPayload.transcript ?? null;
+    mistakeType = scoringPayload.mistake_type ?? null;
+    meta = scoringPayload.meta ?? null;
+
+    // Detailed feedback is quota-limited, and only provided after the first 3 failures (PDF spec).
+    const failureIndexToday = passed ? (failsUsedToday ?? 0) : (failsUsedToday ?? 0) + 1;
+    const allowDetailedFeedbackQuota = (detailedUsedToday ?? 0) < realtimeFeedbackCap;
+    const shouldShowDetailedFeedback = !passed && failureIndexToday > 3 && allowDetailedFeedbackQuota;
+    const failuresLeftToday = Math.max(0, dailyAttemptCap - failureIndexToday);
+    const lockOutNow = !passed && failureIndexToday >= dailyAttemptCap;
+    const lockedUntilNow = lockOutNow ? startOfTomorrowUtc(new Date()) : null;
 
     const combinedMeta: Record<string, unknown> = {
       ...(meta ?? {}),
       ...(clientMeta ?? {}),
-      score_source: scoreSource,
-      ...(clientModel ? { model: clientModel } : {}),
+      score_source: "server",
     };
 
     const attemptNumberToday = attemptsToday + 1;
@@ -260,7 +269,7 @@ Deno.serve(async (req) => {
       attempt_number_today: attemptNumberToday,
       score,
       passed,
-      detailed_feedback_used: allowDetailedFeedback,
+      detailed_feedback_used: shouldShowDetailedFeedback,
       mistake_type: mistakeType,
       audio_path,
       transcript: transcript ?? null,
@@ -287,6 +296,7 @@ Deno.serve(async (req) => {
         attempts_date: today,
         consecutive_fails: newConsecutiveFails,
         mastered_at: masteredAt,
+        locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
         last_score: score,
         updated_at: new Date().toISOString(),
       });
@@ -296,6 +306,95 @@ Deno.serve(async (req) => {
     }
 
     let nextGate: string | null = null;
+
+    // Keep child_level_progress in sync when the new level graph exists.
+    const { data: levelRow } = await supabaseAdmin
+      .from("levels")
+      .select("id, surah_id, type, order_index, config")
+      .eq("surah_id", surah_id)
+      .eq("type", "VERSE_LESSON")
+      .eq("ayah_id", ayah_id)
+      .maybeSingle();
+
+    if (levelRow?.id) {
+      // Insert into level_attempts (best-effort).
+      try {
+        await supabaseAdmin.from("level_attempts").insert({
+          child_id,
+          level_id: levelRow.id,
+          attempt_number_today: attemptNumberToday,
+          score,
+          passed,
+          detailed_feedback_used: shouldShowDetailedFeedback,
+          mistake_type: mistakeType,
+          meta: combinedMeta,
+        });
+      } catch (_) {
+        // best-effort
+      }
+
+      const { data: existingLevelProgress } = await supabaseAdmin
+        .from("child_level_progress")
+        .select("status")
+        .eq("child_id", child_id)
+        .eq("level_id", levelRow.id)
+        .maybeSingle();
+
+      const existingStatus = (existingLevelProgress?.status as string | undefined) ?? "LOCKED";
+      let nextStatus = existingStatus;
+      if (existingStatus !== "COMPLETED") {
+        if (ayahMasteredNow) nextStatus = "COMPLETED";
+        else if (existingStatus === "UNLOCKED") nextStatus = "IN_PROGRESS";
+      }
+
+      await supabaseAdmin.from("child_level_progress").upsert(
+        {
+          child_id,
+          level_id: levelRow.id,
+          status: nextStatus,
+          attempts_today: attemptNumberToday,
+          attempts_date: today,
+          consecutive_fails: newConsecutiveFails,
+          pass_count_total: newPassCountTotal,
+          locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
+          last_score: score,
+          completed_at: ayahMasteredNow ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "child_id,level_id" },
+      );
+
+      if (ayahMasteredNow) {
+        const { data: nextLevel } = await supabaseAdmin
+          .from("levels")
+          .select("id, type, config")
+          .eq("surah_id", surah_id)
+          .eq("order_index", (levelRow.order_index as number) + 1)
+          .maybeSingle();
+
+        if (nextLevel?.id) {
+          // Unlock next level if currently locked.
+          await supabaseAdmin.from("child_level_progress").update({
+            status: "UNLOCKED",
+            updated_at: new Date().toISOString(),
+          }).eq("child_id", child_id)
+            .eq("level_id", nextLevel.id)
+            .eq("status", "LOCKED");
+
+          const quizType = (nextLevel.config as Record<string, unknown> | null)?.quiz_type;
+          if (nextLevel.type === "CHECKPOINT" && typeof quizType === "string") {
+            nextGate = quizType === "mini_1"
+              ? "MINI_QUIZ_1"
+              : quizType === "mini_2"
+                ? "MINI_QUIZ_2"
+                : null;
+          }
+          if (nextLevel.type === "FINAL_EXAM") {
+            nextGate = "FINAL_EXAM";
+          }
+        }
+      }
+    }
 
     const { data: surahRow, error: surahError } = await supabaseAdmin
       .from("surah_progress")
@@ -316,18 +415,20 @@ Deno.serve(async (req) => {
     };
 
     let updatedStage = surahBase.stage;
-    let updatedUnlockedAyah = Math.max(surahBase.unlocked_ayah_max ?? 1, ayah_id + 1);
+    let updatedUnlockedAyah = surahBase.unlocked_ayah_max ?? 1;
 
     if (ayahMasteredNow) {
-      if (ayah_id === 2 && surahBase.stage === "LEARN_1_2") {
-        updatedStage = "MINI_QUIZ_1";
-        nextGate = "MINI_QUIZ_1";
-      }
+      updatedUnlockedAyah = Math.max(updatedUnlockedAyah, ayah_id + 1);
+    }
 
-      if (ayah_id === 4 && surahBase.stage === "LEARN_3_4") {
-        updatedStage = "MINI_QUIZ_2";
-        nextGate = "MINI_QUIZ_2";
-      }
+    if (nextGate === "MINI_QUIZ_1") {
+      updatedStage = "MINI_QUIZ_1";
+    }
+    if (nextGate === "MINI_QUIZ_2") {
+      updatedStage = "MINI_QUIZ_2";
+    }
+    if (nextGate === "FINAL_EXAM") {
+      updatedStage = "FINAL_EXAM";
     }
 
     await supabaseAdmin.from("surah_progress").upsert({
@@ -367,16 +468,17 @@ Deno.serve(async (req) => {
     return jsonResponse(200, {
       score,
       passed,
+      mistakeType,
       passCountTotal: newPassCountTotal,
       passesRemaining: Math.max(0, passesRequired - newPassCountTotal),
       attemptsToday: attemptNumberToday,
-      attemptsLeftToday: Math.max(0, dailyAttemptCap - attemptNumberToday),
-      showDetailedFeedback: allowDetailedFeedback,
+      attemptsLeftToday: lockOutNow ? 0 : failuresLeftToday,
+      showDetailedFeedback: shouldShowDetailedFeedback,
       mustReplayLearnStep: newConsecutiveFails >= 2 && !passed,
       shouldBlurVerse: blurAfterAttempt ? attemptNumberToday >= blurAfterAttempt : false,
       ayahMasteredNow,
       nextGate,
-      locked_until: null,
+      locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
     });
   } catch (error) {
     return jsonResponse(500, { error: error instanceof Error ? error.message : "Unexpected error" });

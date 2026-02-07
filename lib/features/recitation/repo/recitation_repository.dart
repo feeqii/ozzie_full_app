@@ -40,9 +40,6 @@ class RecitationRepository {
     required int surahId,
     required int ayahId,
     required String audioPath,
-    int? score,
-    String? transcript,
-    String? model,
     Map<String, dynamic>? meta,
   }) async {
     final accessToken = _client.auth.currentSession?.accessToken;
@@ -58,9 +55,6 @@ class RecitationRepository {
         'surah_id': surahId,
         'ayah_id': ayahId,
         'audio_path': audioPath,
-        if (score != null) 'score': score,
-        if (transcript != null) 'transcript': transcript,
-        if (model != null) 'model': model,
         if (meta != null) 'meta': meta,
       },
     );

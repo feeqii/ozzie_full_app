@@ -89,9 +89,8 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
               label: 'Open Settings',
               onPressed: () async {
                 await openAppSettings();
-                if (mounted) {
-                  context.pop();
-                }
+                if (!context.mounted) return;
+                context.pop();
               },
             ),
             secondaryAction: PrimaryButton(

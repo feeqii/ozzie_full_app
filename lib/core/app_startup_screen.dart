@@ -31,7 +31,7 @@ class AppStartupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Check .env and restart the app after setting Supabase values.',
+                  'Check Supabase configuration and restart the app.',
                   style: AppTextStyles.body,
                   textAlign: TextAlign.center,
                 ),

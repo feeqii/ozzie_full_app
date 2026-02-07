@@ -39,7 +39,6 @@ class ChildReciteTimeScreen extends ConsumerWidget {
     }
 
     final sessionsAsync = ref.watch(childSessionSummaryProvider(resolvedChildId));
-    final basePath = childId == null ? '/child/progress' : '/parent/child/$resolvedChildId/progress';
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Recite time'),

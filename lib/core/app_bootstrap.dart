@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -27,21 +26,21 @@ class _AppBootstrapState extends State<AppBootstrap> {
   }
 
   Future<void> _initialize() async {
-    try {
-      await dotenv.load(fileName: '.env');
-    } catch (error) {
-      setState(() {
-        _state = AppStartupState.error('Missing .env file. Add SUPABASE_URL and SUPABASE_ANON_KEY.');
-      });
-      return;
-    }
+    final supabaseUrl = const String.fromEnvironment(
+      'SUPABASE_URL',
+      defaultValue: 'https://ymxgbycnbjwfmsfgvcms.supabase.co',
+    ).trim();
+    final anonKey = const String.fromEnvironment(
+      'SUPABASE_ANON_KEY',
+      defaultValue:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlteGdieWNuYmp3Zm1zZmd2Y21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMzU0NjcsImV4cCI6MjA4NTYxMTQ2N30.vwaCDI56Js3OatRwL9PN2QwJJmKY1n9chSSE8Fb2TF4',
+    ).trim();
 
-    final supabaseUrl = dotenv.env['SUPABASE_URL']?.trim();
-    final anonKey = dotenv.env['SUPABASE_ANON_KEY']?.trim();
-
-    if (supabaseUrl == null || supabaseUrl.isEmpty || anonKey == null || anonKey.isEmpty) {
+    if (supabaseUrl.isEmpty || anonKey.isEmpty) {
       setState(() {
-        _state = AppStartupState.error('Supabase env missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
+        _state = AppStartupState.error(
+          'Supabase config missing. Set SUPABASE_URL and SUPABASE_ANON_KEY via --dart-define.',
+        );
       });
       return;
     }

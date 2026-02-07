@@ -56,7 +56,6 @@ class ChildProgressHomeScreen extends ConsumerWidget {
     }
 
     final basePath = childId == null ? '/child/progress' : '/parent/child/$resolvedChildId/progress';
-    final returnRoute = childId == null ? '/child/home' : '/parent/dashboard';
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Progress'),

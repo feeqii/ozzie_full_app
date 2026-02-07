@@ -39,7 +39,6 @@ class ChildStreakScreen extends ConsumerWidget {
     }
 
     final streakAsync = ref.watch(childStreakProvider(resolvedChildId));
-    final basePath = childId == null ? '/child/progress' : '/parent/child/$resolvedChildId/progress';
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Streak'),

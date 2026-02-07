@@ -13,8 +13,11 @@ import '../../features/auth/screens/auth_success_screen.dart';
 import '../../features/child/child_home_screen.dart';
 import '../../features/child/providers/child_providers.dart';
 import '../../features/child/screens/ayah_learn_screen.dart';
-import '../../features/child/screens/surah_overview_screen.dart';
+import '../../features/child/screens/surah_intro_screen.dart';
+import '../../features/child/screens/surah_journey_screen.dart';
 import '../../features/gallery/design_system_gallery_screen.dart';
+import '../../features/map/screens/galaxy_map_screen.dart';
+import '../../features/map/screens/planet_map_screen.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
 import '../../features/parent/providers/parent_profile_provider.dart';
 import '../../features/parent/screens/add_child_screen.dart';
@@ -236,6 +239,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ChildHomeScreen(),
       ),
       GoRoute(
+        path: '/child/map',
+        builder: (context, state) => const GalaxyMapScreen(),
+      ),
+      GoRoute(
+        path: '/child/map/galaxy/:galaxyId',
+        builder: (context, state) {
+          final galaxyId = int.tryParse(state.pathParameters['galaxyId'] ?? '');
+          if (galaxyId == null) {
+            return const GalaxyMapScreen();
+          }
+          return PlanetMapScreen(galaxyId: galaxyId);
+        },
+      ),
+      GoRoute(
         path: '/child/progress',
         builder: (context, state) => const ChildProgressHomeScreen(),
       ),
@@ -268,7 +285,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           if (surahId == null) {
             return const ChildHomeScreen();
           }
-          return SurahOverviewScreen(surahId: surahId);
+          return SurahJourneyScreen(surahId: surahId);
+        },
+      ),
+      GoRoute(
+        path: '/child/surah/:surahId/intro/:levelId',
+        builder: (context, state) {
+          final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
+          final levelId = state.pathParameters['levelId'];
+          if (surahId == null || levelId == null || levelId.isEmpty) {
+            return const ChildHomeScreen();
+          }
+          return SurahIntroScreen(surahId: surahId, levelId: levelId);
         },
       ),
       GoRoute(

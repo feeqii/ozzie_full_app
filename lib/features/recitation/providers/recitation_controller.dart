@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -14,12 +12,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase_client_provider.dart';
 import '../../child/models/child_profile.dart';
 import '../../child/providers/child_providers.dart';
-import '../../content/repo/content_repository.dart';
 import '../../rewards/models/reward_event.dart';
 import '../models/recitation_state.dart';
 import '../repo/recitation_repository.dart';
-import '../services/arabic_similarity.dart';
-import '../services/openai_transcription_service.dart';
 
 final recitationRepositoryProvider = Provider<RecitationRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
@@ -29,7 +24,7 @@ final recitationRepositoryProvider = Provider<RecitationRepository>((ref) {
 final recitationControllerProvider = StateNotifierProvider.family<RecitationController, RecitationState, RecitationParams>(
   (ref, params) {
     final repo = ref.watch(recitationRepositoryProvider);
-    final selectedChildGetter = () => ref.read(selectedChildProvider);
+    ChildProfile? selectedChildGetter() => ref.read(selectedChildProvider);
     final childId = params.childId ?? selectedChildGetter()?.id ?? '';
     return RecitationController(
       repo,
@@ -95,9 +90,6 @@ class RecitationController extends StateNotifier<RecitationState> {
   final AudioRecorder _recorder;
   final AudioPlayer _player;
   final SelectedChildGetter _selectedChild;
-  final ContentRepository _contentRepository = const ContentRepository();
-  final OpenAiTranscriptionService _transcriptionService = const OpenAiTranscriptionService();
-  static const String _openAiModel = 'gpt-4o-transcribe';
   static const String _logTag = '[RecitationSubmit]';
 
   Future<bool> ensureMicPermission({bool requestIfNeeded = true}) async {
@@ -223,27 +215,13 @@ class RecitationController extends StateNotifier<RecitationState> {
       }
       _logAccessTokenClaims(refreshed.session?.accessToken, label: 'refreshed');
 
-      final apiKey = dotenv.env['OPENAI_API_KEY']?.trim();
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('Missing OPENAI_API_KEY. Add it to your .env file.');
-      }
-
-      final targetArabic = await _loadArabicTarget();
-      if (targetArabic == null || targetArabic.isEmpty) {
-        throw Exception('Missing target ayah text for scoring.');
-      }
-
-      final transcript = await _transcriptionService.transcribe(
-        apiKey: apiKey,
-        localPath: state.localPath!,
-        model: _openAiModel,
-        prompt: 'Quran recitation (Arabic). Expected verse: $targetArabic',
-      );
-      final score = computeSimilarityScore(transcript, targetArabic);
       final storagePath = _repo.buildStoragePath(
         surahId: state.surahId,
         ayahId: state.ayahId,
       );
+
+      // Upload before scoring so the server can read the file.
+      await _repo.uploadRecitation(localPath: state.localPath!, storagePath: storagePath);
 
       final ageYears = _resolveChildAgeYears();
       final meta = <String, dynamic>{
@@ -255,16 +233,7 @@ class RecitationController extends StateNotifier<RecitationState> {
         surahId: state.surahId,
         ayahId: state.ayahId,
         audioPath: storagePath,
-        score: score,
-        transcript: transcript,
-        model: _openAiModel,
         meta: meta.isEmpty ? null : meta,
-      );
-
-      unawaited(
-        _repo
-            .uploadRecitation(localPath: state.localPath!, storagePath: storagePath)
-            .catchError((_) {}),
       );
 
       final lockedUntil = payload['locked_until'] as String?;
@@ -413,24 +382,13 @@ class RecitationController extends StateNotifier<RecitationState> {
     final expiresAt = session.expiresAt;
     final aud = session.user.aud;
     final hasRefresh = session.refreshToken != null && session.refreshToken!.isNotEmpty;
-    final supabaseUrl = dotenv.env['SUPABASE_URL']?.trim();
     debugPrint(
-      '$_logTag session user=${_mask(userId)} aud=$aud expiresAt=$expiresAt refresh=$hasRefresh url=$supabaseUrl',
+      '$_logTag session user=${_mask(userId)} aud=$aud expiresAt=$expiresAt refresh=$hasRefresh',
     );
   }
 
   String _mask(String value) {
     if (value.length <= 6) return value;
     return '${value.substring(0, 3)}...${value.substring(value.length - 3)}';
-  }
-
-  Future<String?> _loadArabicTarget() async {
-    final content = await _contentRepository.fetchSurahContent(state.surahId);
-    for (final ayah in content.ayahs) {
-      if (ayah.id == state.ayahId) {
-        return ayah.arabic;
-      }
-    }
-    return null;
   }
 }

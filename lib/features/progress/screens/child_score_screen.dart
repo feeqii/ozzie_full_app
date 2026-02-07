@@ -39,7 +39,6 @@ class ChildScoreScreen extends ConsumerWidget {
     }
 
     final scoreAsync = ref.watch(childScoreSummaryProvider(resolvedChildId));
-    final basePath = childId == null ? '/child/progress' : '/parent/child/$resolvedChildId/progress';
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Score'),

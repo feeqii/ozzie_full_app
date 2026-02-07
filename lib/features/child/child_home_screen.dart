@@ -8,12 +8,12 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/ui/app_app_bar.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_scaffold.dart';
-import '../../core/ui/label_chip.dart';
 import '../../core/ui/primary_button.dart';
 import '../../core/ui/secondary_button.dart';
 import '../auth/controllers/auth_controller.dart';
 import '../child/providers/child_providers.dart';
-import '../content/providers/content_providers.dart';
+import '../map/providers/map_providers.dart';
+import '../progress/providers/progress_providers.dart';
 
 class ChildHomeScreen extends ConsumerWidget {
   const ChildHomeScreen({super.key});
@@ -21,7 +21,8 @@ class ChildHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final child = ref.watch(selectedChildProvider);
-    final surahsAsync = ref.watch(surahSummariesProvider);
+    final mapAsync = ref.watch(mapStateProvider);
+    final summaryAsync = child == null ? null : ref.watch(childProgressSummaryProvider(child.id));
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Learning Journey', showBack: false),
@@ -36,68 +37,88 @@ class ChildHomeScreen extends ConsumerWidget {
                   style: AppTextStyles.title,
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Pick a surah to begin your lesson.', style: AppTextStyles.body),
+                Text('Explore the map and continue your journey.', style: AppTextStyles.body),
                 const SizedBox(height: AppSpacing.lg),
               ],
             ),
           ),
-          surahsAsync.when(
-            data: (surahs) {
-              if (surahs.isEmpty) {
-                return SliverToBoxAdapter(
-                  child: Text('No surahs available.', style: AppTextStyles.body),
-                );
-              }
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final surah = surahs[index];
-                    final isLast = index == surahs.length - 1;
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
-                      child: AppCard(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          if (summaryAsync != null)
+            SliverToBoxAdapter(
+              child: summaryAsync.when(
+                data: (summary) {
+                  return AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Today', style: AppTextStyles.caption),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                LabelChip(
-                                  label: 'Surah ${surah.id}',
-                                  background: AppColors.gamificationLight,
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${surah.ayahCount} ayahs',
-                                  style: AppTextStyles.caption,
-                                ),
-                              ],
+                            Expanded(
+                              child: _StatPill(
+                                label: 'Streak',
+                                value: '${summary.streak.currentStreak}d',
+                              ),
                             ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(surah.name, style: AppTextStyles.title),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(surah.translation, style: AppTextStyles.body),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(surah.summary, style: AppTextStyles.caption),
-                            const SizedBox(height: AppSpacing.md),
-                          PrimaryButton(
-                            label: 'View overview',
-                            onPressed: () => context.push('/child/surah/${surah.id}'),
-                          ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: _StatPill(
+                                label: 'Score',
+                                value: '${summary.score.averageScore}%',
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: _StatPill(
+                                label: 'Time',
+                                value: '${summary.sessions.totalMinutes}m',
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                  childCount: surahs.length,
-                ),
-              );
-            },
-            loading: () => const SliverToBoxAdapter(
-              child: Center(child: CircularProgressIndicator()),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
             ),
-            error: (error, _) => SliverToBoxAdapter(
-              child: Text('Unable to load surahs.', style: AppTextStyles.body),
+          SliverToBoxAdapter(
+            child: mapAsync.when(
+              data: (mapState) {
+                final active = mapState?.galaxies
+                    .expand((g) => g.surahs)
+                    .where((s) => s.isActive)
+                    .toList();
+                active?.sort((a, b) => (a.activeSlot ?? 99).compareTo(b.activeSlot ?? 99));
+                final next = active != null && active.isNotEmpty ? active.first : null;
+                if (next == null) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.lg),
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Continue', style: AppTextStyles.caption),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(next.name, style: AppTextStyles.title),
+                        const SizedBox(height: AppSpacing.md),
+                        PrimaryButton(
+                          label: 'Resume',
+                          onPressed: () => context.push('/child/surah/${next.id}'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
             ),
           ),
           SliverToBoxAdapter(
@@ -105,6 +126,11 @@ class ChildHomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: AppSpacing.lg),
+                PrimaryButton(
+                  label: 'Explore map',
+                  onPressed: () => context.push('/child/map'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 PrimaryButton(
                   label: 'View progress',
                   onPressed: () => context.push('/child/progress'),
@@ -129,6 +155,35 @@ class ChildHomeScreen extends ConsumerWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.gamificationLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppTextStyles.caption),
+          const SizedBox(height: AppSpacing.xs),
+          Text(value, style: AppTextStyles.title),
         ],
       ),
     );
