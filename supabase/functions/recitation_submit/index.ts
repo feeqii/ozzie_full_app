@@ -31,6 +31,8 @@ const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const scoringUrl = Deno.env.get("SCORING_API_URL");
 const scoringApiKey = Deno.env.get("SCORING_API_KEY");
+const mockScoring = (Deno.env.get("MOCK_SCORING") ?? "").toLowerCase().trim();
+const allowMockScoring = mockScoring === "1" || mockScoring === "true" || mockScoring === "yes";
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing SUPABASE_URL or service role key");
@@ -218,33 +220,42 @@ Deno.serve(async (req) => {
     let meta: Record<string, unknown> | null = null;
 
     if (!scoringUrl) {
-      return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
+      if (!allowMockScoring) {
+        return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
+      }
+
+      // Dev-only fallback to exercise the progression system end-to-end without wiring a scorer.
+      score = passThreshold;
+      passed = true;
+      transcript = null;
+      mistakeType = null;
+      meta = { mock_scoring: true };
+    } else {
+      const scoringResponse = await fetch(scoringUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          audio_path,
+          surah_id,
+          ayah_id,
+          child_id,
+        }),
+      });
+
+      if (!scoringResponse.ok) {
+        return jsonResponse(502, { error: "Scoring service failed" });
+      }
+
+      const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
+      score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
+      passed = typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
+      transcript = scoringPayload.transcript ?? null;
+      mistakeType = scoringPayload.mistake_type ?? null;
+      meta = scoringPayload.meta ?? null;
     }
-
-    const scoringResponse = await fetch(scoringUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        audio_path,
-        surah_id,
-        ayah_id,
-        child_id,
-      }),
-    });
-
-    if (!scoringResponse.ok) {
-      return jsonResponse(502, { error: "Scoring service failed" });
-    }
-
-    const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
-    score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
-    passed = typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
-    transcript = scoringPayload.transcript ?? null;
-    mistakeType = scoringPayload.mistake_type ?? null;
-    meta = scoringPayload.meta ?? null;
 
     // Detailed feedback is quota-limited, and only provided after the first 3 failures (PDF spec).
     const failureIndexToday = passed ? (failsUsedToday ?? 0) : (failsUsedToday ?? 0) + 1;
