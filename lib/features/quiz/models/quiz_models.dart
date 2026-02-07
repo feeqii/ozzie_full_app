@@ -1,10 +1,6 @@
 import '../../rewards/models/reward_event.dart';
 
-enum QuizType {
-  mini1,
-  mini2,
-  finalExam,
-}
+enum QuizType { mini1, mini2, finalExam }
 
 enum QuizQuestionType {
   recitePrompt,
@@ -14,10 +10,7 @@ enum QuizQuestionType {
 }
 
 class QuizQuestionOption {
-  const QuizQuestionOption({
-    required this.id,
-    required this.label,
-  });
+  const QuizQuestionOption({required this.id, required this.label});
 
   final String id;
   final String label;
@@ -103,6 +96,8 @@ class QuizState {
     this.errorMessage,
     this.score,
     this.passed,
+    this.attemptsLeftToday,
+    this.lockedUntil,
     this.nextStage,
     this.rewardEvent,
   });
@@ -118,6 +113,8 @@ class QuizState {
   final String? errorMessage;
   final int? score;
   final bool? passed;
+  final int? attemptsLeftToday;
+  final DateTime? lockedUntil;
   final String? nextStage;
   final RewardEvent? rewardEvent;
 
@@ -130,6 +127,10 @@ class QuizState {
     bool clearError = false,
     int? score,
     bool? passed,
+    int? attemptsLeftToday,
+    bool clearAttemptsLeftToday = false,
+    DateTime? lockedUntil,
+    bool clearLockedUntil = false,
     String? nextStage,
     RewardEvent? rewardEvent,
     bool clearReward = false,
@@ -146,6 +147,10 @@ class QuizState {
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       score: score ?? this.score,
       passed: passed ?? this.passed,
+      attemptsLeftToday: clearAttemptsLeftToday
+          ? null
+          : attemptsLeftToday ?? this.attemptsLeftToday,
+      lockedUntil: clearLockedUntil ? null : lockedUntil ?? this.lockedUntil,
       nextStage: nextStage ?? this.nextStage,
       rewardEvent: clearReward ? null : rewardEvent ?? this.rewardEvent,
     );

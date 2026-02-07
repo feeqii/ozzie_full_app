@@ -45,9 +45,7 @@ class QuizRepository {
         'child_id': childId,
         'surah_id': surahId,
         'quiz_type': quizType.apiValue,
-        'answers': {
-          'items': answers.map((item) => item.toJson()).toList(),
-        },
+        'answers': {'items': answers.map((item) => item.toJson()).toList()},
       },
     );
 

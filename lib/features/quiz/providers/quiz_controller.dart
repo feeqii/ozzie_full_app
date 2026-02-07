@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../child/providers/child_providers.dart';
 import '../../rewards/models/reward_event.dart';
@@ -7,13 +8,16 @@ import '../../../core/ui/quiz_option_card.dart';
 import '../repo/quiz_repository.dart';
 import 'quiz_providers.dart';
 
-final quizControllerProvider = StateNotifierProvider.family<QuizController, QuizState, QuizParams>(
-  (ref, params) {
-    final repo = ref.watch(quizRepositoryProvider);
-    final childId = params.childId ?? ref.watch(selectedChildProvider)?.id ?? '';
-    return QuizController(repo, params.copyWith(childId: childId));
-  },
-);
+final quizControllerProvider =
+    StateNotifierProvider.family<QuizController, QuizState, QuizParams>((
+      ref,
+      params,
+    ) {
+      final repo = ref.watch(quizRepositoryProvider);
+      final childId =
+          params.childId ?? ref.watch(selectedChildProvider)?.id ?? '';
+      return QuizController(repo, params.copyWith(childId: childId));
+    });
 
 class QuizParams {
   const QuizParams({
@@ -26,11 +30,7 @@ class QuizParams {
   final int surahId;
   final QuizType quizType;
 
-  QuizParams copyWith({
-    String? childId,
-    int? surahId,
-    QuizType? quizType,
-  }) {
+  QuizParams copyWith({String? childId, int? surahId, QuizType? quizType}) {
     return QuizParams(
       childId: childId ?? this.childId,
       surahId: surahId ?? this.surahId,
@@ -55,23 +55,20 @@ class QuizParams {
 
 class QuizController extends StateNotifier<QuizState> {
   QuizController(this._repo, QuizParams params)
-      : super(
-          QuizState(
-            childId: params.childId ?? '',
-            surahId: params.surahId,
-            quizType: params.quizType,
-            questions: _buildQuestions(params.surahId, params.quizType),
-          ),
-        );
+    : super(
+        QuizState(
+          childId: params.childId ?? '',
+          surahId: params.surahId,
+          quizType: params.quizType,
+          questions: _buildQuestions(params.surahId, params.quizType),
+        ),
+      );
 
   final QuizRepository _repo;
 
   void selectOption(String questionId, String optionId) {
     state = state.copyWith(
-      selections: {
-        ...state.selections,
-        questionId: optionId,
-      },
+      selections: {...state.selections, questionId: optionId},
       clearError: true,
     );
   }
@@ -94,6 +91,8 @@ class QuizController extends StateNotifier<QuizState> {
       isSubmitting: false,
       score: null,
       passed: null,
+      clearAttemptsLeftToday: true,
+      clearLockedUntil: true,
       nextStage: null,
       clearReward: true,
       clearError: true,
@@ -117,13 +116,18 @@ class QuizController extends StateNotifier<QuizState> {
     return selected == question.correctOptionId;
   }
 
-  QuizOptionState optionState(QuizQuestion question, QuizQuestionOption option) {
+  QuizOptionState optionState(
+    QuizQuestion question,
+    QuizQuestionOption option,
+  ) {
     final selected = state.selections[question.id];
     if (!state.showFeedback) {
       if (selected == null) {
         return QuizOptionState.normal;
       }
-      return selected == option.id ? QuizOptionState.selected : QuizOptionState.disabled;
+      return selected == option.id
+          ? QuizOptionState.selected
+          : QuizOptionState.disabled;
     }
 
     if (question.correctOptionId == null) {
@@ -160,7 +164,9 @@ class QuizController extends StateNotifier<QuizState> {
 
   Future<void> submitQuiz() async {
     if (state.childId.isEmpty) {
-      state = state.copyWith(errorMessage: 'Select a child profile to continue.');
+      state = state.copyWith(
+        errorMessage: 'Select a child profile to continue.',
+      );
       return;
     }
 
@@ -169,7 +175,9 @@ class QuizController extends StateNotifier<QuizState> {
     try {
       final answers = state.questions.map((question) {
         final selected = state.selections[question.id];
-        final isCorrect = question.correctOptionId != null && selected == question.correctOptionId;
+        final isCorrect =
+            question.correctOptionId != null &&
+            selected == question.correctOptionId;
         return QuizAnswerItem(
           questionId: question.id,
           selectedOptionId: selected,
@@ -186,12 +194,45 @@ class QuizController extends StateNotifier<QuizState> {
 
       final rewardEvent = _buildRewardEvent(payload);
 
+      final lockedUntilRaw = payload['locked_until'];
+      final lockedUntilParsed =
+          lockedUntilRaw is String && lockedUntilRaw.isNotEmpty
+          ? DateTime.tryParse(lockedUntilRaw)
+          : null;
+      final hasLockedUntilKey = payload.containsKey('locked_until');
+
+      final attemptsLeftRaw = payload['attemptsLeftToday'];
+      final attemptsLeftParsed = (attemptsLeftRaw as num?)?.toInt();
+      final hasAttemptsLeftKey = payload.containsKey('attemptsLeftToday');
+
       state = state.copyWith(
         isSubmitting: false,
         score: (payload['score'] as num?)?.toInt(),
         passed: payload['passed'] == true,
+        attemptsLeftToday: attemptsLeftParsed,
+        clearAttemptsLeftToday:
+            hasAttemptsLeftKey && attemptsLeftParsed == null,
+        lockedUntil: lockedUntilParsed,
+        clearLockedUntil: hasLockedUntilKey && lockedUntilParsed == null,
         nextStage: payload['nextStage'] as String?,
         rewardEvent: rewardEvent,
+      );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      String? message;
+      if (details is Map) {
+        final code = details['code'];
+        final errMsg = details['error'];
+        if (code == 'RECITATION_REQUIRED') {
+          message =
+              'Recitation required. Record and submit your recitation to continue.';
+        } else if (errMsg is String && errMsg.isNotEmpty) {
+          message = errMsg;
+        }
+      }
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: message ?? error.toString(),
       );
     } catch (error) {
       state = state.copyWith(
@@ -217,10 +258,23 @@ class QuizController extends StateNotifier<QuizState> {
           title: 'Answer the following question',
           prompt: 'What do we say in the opening of Al-Fatihah?',
           options: [
-            QuizQuestionOption(id: 'a', label: 'In the name of Allah, the Most Gracious, the Most Merciful.'),
-            QuizQuestionOption(id: 'b', label: 'Guide us to the straight path.'),
-            QuizQuestionOption(id: 'c', label: 'Master of the Day of Judgment.'),
-            QuizQuestionOption(id: 'd', label: 'You alone we worship, and You alone we ask for help.'),
+            QuizQuestionOption(
+              id: 'a',
+              label:
+                  'In the name of Allah, the Most Gracious, the Most Merciful.',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'Guide us to the straight path.',
+            ),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'Master of the Day of Judgment.',
+            ),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'You alone we worship, and You alone we ask for help.',
+            ),
           ],
           correctOptionId: 'a',
         ),
@@ -229,6 +283,13 @@ class QuizController extends StateNotifier<QuizState> {
 
     if (surahId == 1 && quizType == QuizType.mini2) {
       return const [
+        QuizQuestion(
+          id: 's1m2q0',
+          type: QuizQuestionType.recitePrompt,
+          title: 'Memorization',
+          prompt: 'Recite the four verses we learned so far in Al-Fatihah.',
+          hasAudio: true,
+        ),
         QuizQuestion(
           id: 's1m2q1',
           type: QuizQuestionType.completeVerse,
@@ -275,9 +336,15 @@ class QuizController extends StateNotifier<QuizState> {
           title: 'Answer the following question',
           prompt: 'What do we ask Allah for in Al-Fatihah?',
           options: [
-            QuizQuestionOption(id: 'a', label: 'Guidance to the straight path.'),
+            QuizQuestionOption(
+              id: 'a',
+              label: 'Guidance to the straight path.',
+            ),
             QuizQuestionOption(id: 'b', label: 'A long life and riches.'),
-            QuizQuestionOption(id: 'c', label: 'Forgiveness for every mistake.'),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'Forgiveness for every mistake.',
+            ),
             QuizQuestionOption(id: 'd', label: 'Strength to overcome fear.'),
           ],
           correctOptionId: 'a',
@@ -313,6 +380,13 @@ class QuizController extends StateNotifier<QuizState> {
     if (surahId == 112 && quizType == QuizType.mini2) {
       return const [
         QuizQuestion(
+          id: 's112m2q0',
+          type: QuizQuestionType.recitePrompt,
+          title: 'Memorization',
+          prompt: 'Recite Surah Al-Ikhlas from the beginning up to verse 4.',
+          hasAudio: true,
+        ),
+        QuizQuestion(
           id: 's112m2q1',
           type: QuizQuestionType.completeVerse,
           title: 'Complete the verse',
@@ -336,7 +410,10 @@ class QuizController extends StateNotifier<QuizState> {
             QuizQuestionOption(id: 'a', label: 'Nothing compares to Allah.'),
             QuizQuestionOption(id: 'b', label: 'Allah is the Eternal Refuge.'),
             QuizQuestionOption(id: 'c', label: 'Say, He is Allah, the One.'),
-            QuizQuestionOption(id: 'd', label: 'He neither begets nor is born.'),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'He neither begets nor is born.',
+            ),
           ],
           correctOptionId: 'a',
         ),

@@ -49,6 +49,11 @@ const jsonResponse = (status: number, body: Record<string, unknown>) =>
     },
   });
 
+const toDateString = (date: Date) => date.toISOString().slice(0, 10);
+
+const startOfTomorrowUtc = (date: Date) =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+
 const answerKeys: Record<number, Record<QuizRequest["quiz_type"], Record<string, string>>> = {
   1: {
     mini_1: {
@@ -190,10 +195,16 @@ Deno.serve(async (req) => {
       (quiz_type === "mini_2" && stage === "MINI_QUIZ_2") ||
       (quiz_type === "final" && stage === "FINAL_EXAM");
 
+    const today = toDateString(new Date());
+    const todayStart = new Date(`${today}T00:00:00.000Z`);
+    const tomorrowStart = startOfTomorrowUtc(new Date());
+
     // New gating: allow quiz if the corresponding level node is unlocked/in progress.
     let levelAllowsQuiz = false;
     let levelId: string | null = null;
     let levelOrderIndex: number | null = null;
+    let levelLockedUntil: string | null = null;
+    let levelLocked = false;
     {
       const { data: levels, error: levelsError } = await supabaseAdmin
         .from("levels")
@@ -231,14 +242,90 @@ Deno.serve(async (req) => {
         }
 
         const lockedUntil = progress?.locked_until ? new Date(progress.locked_until as string) : null;
-        const locked = lockedUntil && lockedUntil.getTime() > Date.now();
+        const locked = !!(lockedUntil && lockedUntil.getTime() > Date.now());
         const status = (progress?.status as string | undefined) ?? "LOCKED";
+        levelLocked = locked;
+        levelLockedUntil = lockedUntil ? lockedUntil.toISOString() : null;
         levelAllowsQuiz = !locked && status !== "LOCKED";
       }
     }
 
+    if (levelLocked) {
+      return jsonResponse(200, { locked_until: levelLockedUntil, attemptsLeftToday: 0 });
+    }
+
     if (!stageAllowsQuiz && !levelAllowsQuiz) {
       return jsonResponse(400, { error: "Quiz type not allowed for current state" });
+    }
+
+    if (!levelId) {
+      return jsonResponse(409, { error: "Content not available yet" });
+    }
+
+    // Final exam quiz is attempted only once per day (PDF spec).
+    if (quiz_type === "final") {
+      const { count: attemptsToday, error: attemptsTodayError } = await supabaseAdmin
+        .from("quiz_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("child_id", child_id)
+        .eq("surah_id", surah_id)
+        .eq("quiz_type", quiz_type)
+        .gte("created_at", todayStart.toISOString())
+        .lt("created_at", tomorrowStart.toISOString());
+
+      if (attemptsTodayError) {
+        return jsonResponse(500, { error: "Failed to load attempt count" });
+      }
+
+      if ((attemptsToday ?? 0) >= 1) {
+        const newLockedUntil = startOfTomorrowUtc(new Date());
+        // Also lock the level node so the UI map disables it.
+        await supabaseAdmin.from("child_level_progress").update({
+          locked_until: newLockedUntil.toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("child_id", child_id)
+          .eq("level_id", levelId);
+
+        return jsonResponse(200, { locked_until: newLockedUntil.toISOString(), attemptsLeftToday: 0 });
+      }
+    }
+
+    // Require a fresh server-graded recitation pass before allowing a quiz attempt.
+    const { data: latestQuizAttempt, error: latestQuizAttemptError } = await supabaseAdmin
+      .from("quiz_attempts")
+      .select("created_at")
+      .eq("child_id", child_id)
+      .eq("surah_id", surah_id)
+      .eq("quiz_type", quiz_type)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestQuizAttemptError) {
+      return jsonResponse(500, { error: "Failed to load last quiz attempt" });
+    }
+
+    const lastQuizAttemptAt = (latestQuizAttempt?.created_at as string | undefined) ?? null;
+    let passQuery = supabaseAdmin
+      .from("level_attempts")
+      .select("id, created_at")
+      .eq("child_id", child_id)
+      .eq("level_id", levelId)
+      .eq("passed", true)
+      .contains("meta", { attempt_kind: "memorization_recitation" })
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (lastQuizAttemptAt) {
+      passQuery = passQuery.gt("created_at", lastQuizAttemptAt);
+    }
+
+    const { data: passAttempt, error: passAttemptError } = await passQuery.maybeSingle();
+    if (passAttemptError) {
+      return jsonResponse(500, { error: "Failed to verify recitation pass" });
+    }
+    if (!passAttempt) {
+      return jsonResponse(409, { error: "Recitation required", code: "RECITATION_REQUIRED" });
     }
 
     const { count: attemptNumber } = await supabaseAdmin
@@ -251,6 +338,50 @@ Deno.serve(async (req) => {
     const grade = gradeQuiz(surah_id, quiz_type, answers as QuizAnswers);
     if (grade.details?.reason === "NO_ANSWER_KEY") {
       return jsonResponse(409, { error: "Quiz content not available yet" });
+    }
+
+    // Lockout rules (PDF): checkpoints allow 2 failures/day; final locks out until tomorrow on any failure.
+    const maxFailures = quiz_type === "final" ? 1 : 2;
+    const { count: levelFailsUsedToday, error: levelFailsError } = await supabaseAdmin
+      .from("level_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("child_id", child_id)
+      .eq("level_id", levelId)
+      .eq("passed", false)
+      .contains("meta", { attempt_kind: "memorization_recitation" })
+      .gte("created_at", todayStart.toISOString())
+      .lt("created_at", tomorrowStart.toISOString());
+
+    if (levelFailsError) {
+      return jsonResponse(500, { error: "Failed to load failure count" });
+    }
+
+    const { count: quizFailsUsedToday, error: quizFailsError } = await supabaseAdmin
+      .from("quiz_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("child_id", child_id)
+      .eq("surah_id", surah_id)
+      .eq("quiz_type", quiz_type)
+      .eq("passed", false)
+      .gte("created_at", todayStart.toISOString())
+      .lt("created_at", tomorrowStart.toISOString());
+
+    if (quizFailsError) {
+      return jsonResponse(500, { error: "Failed to load failure count" });
+    }
+
+    const failsUsedToday = (levelFailsUsedToday ?? 0) + (quizFailsUsedToday ?? 0);
+    const failureIndexToday = grade.passed ? failsUsedToday : failsUsedToday + 1;
+    const failuresLeftToday = Math.max(0, maxFailures - failureIndexToday);
+    const lockOutNow = !grade.passed && failureIndexToday >= maxFailures;
+    const lockedUntilNow = lockOutNow ? startOfTomorrowUtc(new Date()) : null;
+
+    if (lockOutNow && levelId) {
+      await supabaseAdmin.from("child_level_progress").update({
+        locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }).eq("child_id", child_id)
+        .eq("level_id", levelId);
     }
 
     const { error: insertError } = await supabaseAdmin.from("quiz_attempts").insert({
@@ -397,6 +528,8 @@ Deno.serve(async (req) => {
       score: grade.score,
       passed: grade.passed,
       nextStage,
+      attemptsLeftToday: lockOutNow ? 0 : failuresLeftToday,
+      locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
     });
   } catch (error) {
     return jsonResponse(500, { error: error instanceof Error ? error.message : "Unexpected error" });

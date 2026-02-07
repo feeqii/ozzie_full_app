@@ -10,7 +10,10 @@ final quizRepositoryProvider = Provider<QuizRepository>((ref) {
   return QuizRepository(client);
 });
 
-final surahProgressProvider = FutureProvider.family<SurahProgress?, int>((ref, surahId) async {
+final surahProgressProvider = FutureProvider.family<SurahProgress?, int>((
+  ref,
+  surahId,
+) async {
   final childId = ref.watch(selectedChildProvider)?.id;
   if (childId == null || childId.isEmpty) {
     return null;
@@ -18,4 +21,3 @@ final surahProgressProvider = FutureProvider.family<SurahProgress?, int>((ref, s
   final repo = ref.watch(quizRepositoryProvider);
   return repo.fetchSurahProgress(childId: childId, surahId: surahId);
 });
-
