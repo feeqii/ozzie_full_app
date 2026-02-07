@@ -13,14 +13,6 @@ type RecitationRequest = {
   meta?: Record<string, unknown> | null;
 };
 
-type ScoringResponse = {
-  score: number;
-  passed?: boolean;
-  transcript?: string | null;
-  mistake_type?: string | null;
-  meta?: Record<string, unknown> | null;
-};
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -29,8 +21,11 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const scoringUrl = Deno.env.get("SCORING_API_URL");
-const scoringApiKey = Deno.env.get("SCORING_API_KEY");
+const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
+const openAiEndpoint = Deno.env.get("OPENAI_TRANSCRIBE_ENDPOINT") ??
+  "https://api.openai.com/v1/audio/transcriptions";
+const openAiModel = Deno.env.get("OPENAI_TRANSCRIBE_MODEL") ?? "gpt-4o-transcribe";
+const openAiTimeoutMs = Number(Deno.env.get("OPENAI_TIMEOUT_MS") ?? "25000");
 const mockScoring = (Deno.env.get("MOCK_SCORING") ?? "").toLowerCase().trim();
 const allowMockScoring = mockScoring === "1" || mockScoring === "true" || mockScoring === "yes";
 
@@ -53,6 +48,137 @@ const toDateString = (date: Date) => date.toISOString().slice(0, 10);
 
 const startOfTomorrowUtc = (date: Date) =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+
+const diacriticsRegex = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/gu;
+const nonArabicRegex = /[^\u0600-\u06FF\s]/gu;
+const tatweelRegex = /\u0640/gu;
+const whitespaceRegex = /\s+/gu;
+
+const normalizeArabic = (input: string): string => {
+  let text = input ?? "";
+  text = text.replace(diacriticsRegex, "");
+  text = text.replace(tatweelRegex, "");
+  text = text.replace(nonArabicRegex, "");
+  text = text
+    .replaceAll("أ", "ا")
+    .replaceAll("إ", "ا")
+    .replaceAll("آ", "ا")
+    .replaceAll("ٱ", "ا")
+    .replaceAll("ى", "ي");
+  text = text.replace(whitespaceRegex, " ").trim();
+  return text;
+};
+
+const levenshtein = (s: string, t: string): number => {
+  const m = s.length;
+  const n = t.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  const prev = Array.from({ length: n + 1 }, (_, i) => i);
+  const curr = new Array<number>(n + 1).fill(0);
+
+  for (let i = 1; i <= m; i += 1) {
+    curr[0] = i;
+    const sChar = s.charCodeAt(i - 1);
+    for (let j = 1; j <= n; j += 1) {
+      const cost = sChar === t.charCodeAt(j - 1) ? 0 : 1;
+      const del = prev[j] + 1;
+      const ins = curr[j - 1] + 1;
+      const sub = prev[j - 1] + cost;
+      curr[j] = Math.min(del, ins, sub);
+    }
+    for (let j = 0; j <= n; j += 1) prev[j] = curr[j];
+  }
+  return prev[n];
+};
+
+const computeSimilarityScore = (transcript: string, reference: string): number => {
+  const a = normalizeArabic(transcript);
+  const b = normalizeArabic(reference);
+  if (!a || !b) return 0;
+  const dist = levenshtein(a, b);
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 0;
+  const similarity = 1 - (dist / maxLen);
+  return Math.max(0, Math.min(100, Math.round(similarity * 100)));
+};
+
+type WordDiffCounts = { inserts: number; deletes: number; subs: number };
+
+const wordDiffCounts = (transcript: string, reference: string): WordDiffCounts => {
+  const a = normalizeArabic(transcript).split(" ").filter(Boolean);
+  const b = normalizeArabic(reference).split(" ").filter(Boolean);
+  const m = a.length;
+  const n = b.length;
+
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+  for (let i = 0; i <= m; i += 1) dp[i][0] = i;
+  for (let j = 0; j <= n; j += 1) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i += 1) {
+    for (let j = 1; j <= n; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1, // delete
+        dp[i][j - 1] + 1, // insert
+        dp[i - 1][j - 1] + cost, // sub/match
+      );
+    }
+  }
+
+  let i = m;
+  let j = n;
+  let inserts = 0;
+  let deletes = 0;
+  let subs = 0;
+
+  while (i > 0 || j > 0) {
+    if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      deletes += 1;
+      i -= 1;
+      continue;
+    }
+    if (j > 0 && dp[i][j] === dp[i][j - 1] + 1) {
+      inserts += 1;
+      j -= 1;
+      continue;
+    }
+    if (i > 0 && j > 0) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      if (dp[i][j] === dp[i - 1][j - 1] + cost) {
+        if (cost === 1) subs += 1;
+        i -= 1;
+        j -= 1;
+        continue;
+      }
+    }
+
+    // Fallback (should not happen): make progress to avoid infinite loops.
+    if (i > 0) {
+      deletes += 1;
+      i -= 1;
+    } else if (j > 0) {
+      inserts += 1;
+      j -= 1;
+    }
+  }
+
+  return { inserts, deletes, subs };
+};
+
+const classifyMistakeType = (counts: WordDiffCounts): string | null => {
+  if (counts.deletes > 0) return "missing_words";
+  if (counts.inserts > 0) return "additional_words";
+  if (counts.subs > 0) return "incorrect_words";
+  return null;
+};
+
+const shouldUseMockScoring = (): boolean => {
+  // Mock scoring is a dev-only fallback. If a real OpenAI key is configured, always prefer it.
+  if (openAiApiKey && openAiApiKey.trim().length > 0) return false;
+  return allowMockScoring;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -219,42 +345,141 @@ Deno.serve(async (req) => {
     let mistakeType: string | null = null;
     let meta: Record<string, unknown> | null = null;
 
-    if (!scoringUrl) {
-      if (!allowMockScoring) {
-        return jsonResponse(500, { error: "SCORING_API_URL is not configured" });
-      }
+    // Load verse reference text for scoring.
+    const { data: verseRow, error: verseError } = await supabaseAdmin
+      .from("verses")
+      .select("arabic")
+      .eq("surah_id", surah_id)
+      .eq("ayah_id", ayah_id)
+      .maybeSingle();
 
-      // Dev-only fallback to exercise the progression system end-to-end without wiring a scorer.
+    if (verseError) {
+      return jsonResponse(500, { error: "Failed to load verse reference text" });
+    }
+
+    const referenceArabic = (verseRow?.arabic as string | undefined) ?? "";
+    if (!referenceArabic) {
+      return jsonResponse(409, { error: "Verse content not available yet" });
+    }
+
+    // Verify the uploaded object belongs to the authenticated parent user (defense-in-depth).
+    {
+      const { data: objectRow, error: objectError } = await supabaseAdmin
+        .schema("storage")
+        .from("objects")
+        .select("id, owner, bucket_id, name")
+        .eq("bucket_id", "recitations")
+        .eq("name", audio_path)
+        .maybeSingle();
+
+      if (objectError) {
+        return jsonResponse(500, { error: "Failed to verify audio ownership" });
+      }
+      if (!objectRow) {
+        return jsonResponse(404, { error: "Audio not found" });
+      }
+      const owner = (objectRow.owner as string | null) ?? null;
+      if (owner && owner !== authData.user.id) {
+        return jsonResponse(403, { error: "Forbidden" });
+      }
+    }
+
+    const maxAudioBytes = 15 * 1024 * 1024;
+    const mock = shouldUseMockScoring();
+
+    if (mock) {
+      // Dev-only fallback to exercise the progression system end-to-end without wiring OpenAI.
       score = passThreshold;
       passed = true;
       transcript = null;
-      mistakeType = null;
       meta = { mock_scoring: true };
     } else {
-      const scoringResponse = await fetch(scoringUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(scoringApiKey ? { Authorization: `Bearer ${scoringApiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          audio_path,
-          surah_id,
-          ayah_id,
-          child_id,
-        }),
-      });
-
-      if (!scoringResponse.ok) {
-        return jsonResponse(502, { error: "Scoring service failed" });
+      if (!openAiApiKey || openAiApiKey.trim().length === 0) {
+        return jsonResponse(500, { error: "OPENAI_API_KEY is not configured" });
       }
 
-      const scoringPayload = (await scoringResponse.json()) as ScoringResponse;
-      score = Math.max(0, Math.min(100, Number(scoringPayload.score ?? 0)));
-      passed = typeof scoringPayload.passed === "boolean" ? scoringPayload.passed : score >= passThreshold;
-      transcript = scoringPayload.transcript ?? null;
-      mistakeType = scoringPayload.mistake_type ?? null;
-      meta = scoringPayload.meta ?? null;
+      // Download audio from Storage using service role.
+      const { data: audioBlob, error: downloadError } = await supabaseAdmin.storage
+        .from("recitations")
+        .download(audio_path);
+
+      if (downloadError || !audioBlob) {
+        return jsonResponse(404, { error: "Audio not found" });
+      }
+
+      if (audioBlob.size > maxAudioBytes) {
+        return jsonResponse(413, { error: "Audio too large" });
+      }
+
+      // Transcribe with OpenAI (server-side).
+      const form = new FormData();
+      form.append("model", openAiModel);
+      form.append("response_format", "json");
+      form.append("language", "ar");
+      form.append("prompt", `Quran recitation (Arabic). Expected verse: ${referenceArabic}`);
+      form.append("file", audioBlob, "recitation.m4a");
+
+      const controller = new AbortController();
+      const timeout = Number.isFinite(openAiTimeoutMs) && openAiTimeoutMs > 0 ? openAiTimeoutMs : 25000;
+      const timeoutId = setTimeout(() => controller.abort("timeout"), timeout);
+
+      let openAiResp: Response;
+      try {
+        openAiResp = await fetch(openAiEndpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${openAiApiKey}` },
+          body: form,
+          signal: controller.signal,
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : "unknown";
+        return jsonResponse(502, { error: `OpenAI transcription failed: ${reason}` });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const openAiBodyText = await openAiResp.text();
+      if (!openAiResp.ok) {
+        let message = `OpenAI transcription failed (status ${openAiResp.status})`;
+        try {
+          const parsed = JSON.parse(openAiBodyText) as { error?: { message?: unknown } };
+          const apiMessage = parsed?.error?.message;
+          if (typeof apiMessage === "string" && apiMessage.trim().length > 0) {
+            message = `OpenAI transcription failed: ${apiMessage.trim()}`;
+          }
+        } catch (_) {
+          // ignore parsing errors
+        }
+        return jsonResponse(502, { error: message });
+      }
+
+      let openAiJson: Record<string, unknown> | null = null;
+      try {
+        openAiJson = JSON.parse(openAiBodyText) as Record<string, unknown>;
+      } catch (_) {
+        return jsonResponse(502, { error: "OpenAI transcription returned invalid JSON" });
+      }
+
+      const openAiText = openAiJson?.text;
+      if (typeof openAiText !== "string" || openAiText.trim().length === 0) {
+        return jsonResponse(502, { error: "OpenAI transcription missing text" });
+      }
+
+      transcript = openAiText.trim();
+      score = computeSimilarityScore(transcript, referenceArabic);
+      passed = score >= passThreshold;
+
+      const wordCounts = wordDiffCounts(transcript, referenceArabic);
+      mistakeType = classifyMistakeType(wordCounts);
+
+      meta = {
+        scoring_backend: "openai_direct",
+        openai_model: openAiModel,
+        openai_timeout_ms: timeout,
+        word_inserts: wordCounts.inserts,
+        word_deletes: wordCounts.deletes,
+        word_subs: wordCounts.subs,
+      };
     }
 
     // Detailed feedback is quota-limited, and only provided after the first 3 failures (PDF spec).
