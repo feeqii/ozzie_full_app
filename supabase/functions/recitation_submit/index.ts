@@ -403,8 +403,8 @@ Deno.serve(async (req) => {
       form.append("model", openAiModel);
       form.append("response_format", "json");
       form.append("language", "ar");
-      form.append("prompt", `Quran recitation (Arabic). Expected verse: ${referenceArabic}`);
-      form.append("file", audioBlob, "recitation.m4a");
+      const fileName = audio_path.split("/").pop() || "recitation.m4a";
+      form.append("file", audioBlob, fileName);
 
       const controller = new AbortController();
       const timeout = Number.isFinite(openAiTimeoutMs) && openAiTimeoutMs > 0 ? openAiTimeoutMs : 25000;
