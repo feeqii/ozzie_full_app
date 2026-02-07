@@ -54,16 +54,33 @@ class ProgressRepository {
 
   Future<ScoreSummary> fetchScoreSummary(String childId, {DateTime? since}) async {
     final start = since ?? DateTime.now().subtract(const Duration(days: 7));
-    final response = await _client
+    final recitationsFuture = _client
         .from('recitation_attempts')
-        .select('score, created_at')
+        .select('score, created_at, surah_id, ayah_id')
         .eq('child_id', childId)
         .gte('created_at', start.toIso8601String())
         .order('created_at', ascending: false)
         .limit(50);
 
-    final rows = (response as List).cast<Map<String, dynamic>>();
-    final entries = rows.map(ScoreEntry.fromJson).toList();
+    final quizzesFuture = _client
+        .from('quiz_attempts')
+        .select('score, created_at, surah_id, quiz_type')
+        .eq('child_id', childId)
+        .gte('created_at', start.toIso8601String())
+        .order('created_at', ascending: false)
+        .limit(50);
+
+    final responses = await Future.wait([recitationsFuture, quizzesFuture]);
+    final recitationRows = (responses[0] as List).cast<Map<String, dynamic>>();
+    final quizRows = (responses[1] as List).cast<Map<String, dynamic>>();
+
+    final merged = <ScoreEntry>[
+      ...recitationRows.map(ScoreEntry.fromRecitationJson),
+      ...quizRows.map(ScoreEntry.fromQuizJson),
+    ];
+    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final entries = merged.take(100).toList();
     if (entries.isEmpty) {
       return ScoreSummary.empty();
     }

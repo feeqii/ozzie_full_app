@@ -14,6 +14,8 @@ supabase functions deploy quiz_submit --use-api --no-verify-jwt
 supabase functions deploy start_surah --use-api --no-verify-jwt
 supabase functions deploy get_map_state --use-api --no-verify-jwt
 supabase functions deploy level_complete --use-api --no-verify-jwt
+supabase functions deploy session_start --use-api --no-verify-jwt
+supabase functions deploy session_end --use-api --no-verify-jwt
 ```
 
 If you forget this flag, calls to `/functions/v1/*` will fail **before your code runs** with a
@@ -36,4 +38,3 @@ Optional:
 - `OPENAI_TRANSCRIBE_MODEL` (default: `gpt-4o-transcribe`)
 - `OPENAI_TRANSCRIBE_ENDPOINT` (default: `https://api.openai.com/v1/audio/transcriptions`)
 - `OPENAI_TIMEOUT_MS` (default: `25000`)
-

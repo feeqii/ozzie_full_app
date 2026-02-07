@@ -67,15 +67,37 @@ class ScoreEntry {
   const ScoreEntry({
     required this.score,
     required this.createdAt,
+    required this.source,
+    this.surahId,
+    this.ayahId,
+    this.quizType,
   });
 
   final int score;
   final DateTime createdAt;
+  final String source;
+  final int? surahId;
+  final int? ayahId;
+  final String? quizType;
 
-  factory ScoreEntry.fromJson(Map<String, dynamic> json) {
+  factory ScoreEntry.fromRecitationJson(Map<String, dynamic> json) {
     return ScoreEntry(
       score: (json['score'] as num?)?.toInt() ?? 0,
       createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
+      source: 'recitation',
+      surahId: (json['surah_id'] as num?)?.toInt(),
+      ayahId: (json['ayah_id'] as num?)?.toInt(),
+    );
+  }
+
+  factory ScoreEntry.fromQuizJson(Map<String, dynamic> json) {
+    final quizType = json['quiz_type'] as String?;
+    return ScoreEntry(
+      score: (json['score'] as num?)?.toInt() ?? 0,
+      createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
+      source: quizType == null || quizType.isEmpty ? 'quiz' : 'quiz:$quizType',
+      surahId: (json['surah_id'] as num?)?.toInt(),
+      quizType: quizType,
     );
   }
 }

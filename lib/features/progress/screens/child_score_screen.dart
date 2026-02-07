@@ -80,28 +80,64 @@ class ChildScoreScreen extends ConsumerWidget {
                         if (recentScores.isEmpty)
                           Text('No attempts logged yet.', style: AppTextStyles.body)
                         else
-                          ListView.separated(
-                            itemCount: recentScores.length,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                            itemBuilder: (context, index) {
-                              final entry = recentScores[index];
-                              final dateLabel = MaterialLocalizations.of(context)
-                                  .formatShortDate(entry.createdAt);
-                              return AppCard(
-                                padding: const EdgeInsets.all(AppSpacing.md),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(dateLabel, style: AppTextStyles.body),
-                                    Text('${entry.score}%', style: AppTextStyles.title),
-                                  ],
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (var index = 0; index < recentScores.length; index++) ...[
+                                Builder(
+                                  builder: (context) {
+                                    final entry = recentScores[index];
+                                    final sourceLabel = () {
+                                      final surahId = entry.surahId;
+                                      if (entry.quizType != null) {
+                                        final quizType = entry.quizType!;
+                                        final quizLabel = quizType == 'mini_1'
+                                            ? 'Mini Quiz 1'
+                                            : quizType == 'mini_2'
+                                                ? 'Mini Quiz 2'
+                                                : quizType == 'final'
+                                                    ? 'Final Exam'
+                                                    : 'Quiz';
+                                        return surahId == null ? quizLabel : '$quizLabel (S$surahId)';
+                                      }
+                                      final ayahId = entry.ayahId;
+                                      if (surahId != null && ayahId != null) {
+                                        return 'Recitation (S$surahId A$ayahId)';
+                                      }
+                                      return 'Recitation';
+                                    }();
+                                    final dateLabel = MaterialLocalizations.of(context)
+                                        .formatShortDate(entry.createdAt);
+                                    return AppCard(
+                                      padding: const EdgeInsets.all(AppSpacing.md),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(sourceLabel, style: AppTextStyles.caption),
+                                                const SizedBox(height: AppSpacing.xs),
+                                                Text(dateLabel, style: AppTextStyles.body),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: AppSpacing.md),
+                                          Text('${entry.score}%', style: AppTextStyles.title),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
+                                if (index != recentScores.length - 1)
+                                  const SizedBox(height: AppSpacing.sm),
+                              ],
+                            ],
                           ),
                         if (recentScores.isNotEmpty) const SizedBox(height: AppSpacing.lg),
+                        const Spacer(),
                         PrimaryButton(
                           label: 'Back to progress',
                           onPressed: () => context.pop(),

@@ -80,32 +80,38 @@ class ChildReciteTimeScreen extends ConsumerWidget {
                         if (recentSessions.isEmpty)
                           Text('No sessions logged yet.', style: AppTextStyles.body)
                         else
-                          ListView.separated(
-                            itemCount: recentSessions.length,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                            itemBuilder: (context, index) {
-                              final session = recentSessions[index];
-                              final duration = session.duration;
-                              final durationLabel = duration == null
-                                  ? 'In progress'
-                                  : '${duration.inMinutes} min';
-                              final dateLabel =
-                                  MaterialLocalizations.of(context).formatShortDate(session.startedAt);
-                              return AppCard(
-                                padding: const EdgeInsets.all(AppSpacing.md),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(dateLabel, style: AppTextStyles.body),
-                                    Text(durationLabel, style: AppTextStyles.title),
-                                  ],
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (var index = 0; index < recentSessions.length; index++) ...[
+                                Builder(
+                                  builder: (context) {
+                                    final session = recentSessions[index];
+                                    final duration = session.duration;
+                                    final durationLabel = duration == null
+                                        ? 'In progress'
+                                        : '${duration.inMinutes} min';
+                                    final dateLabel = MaterialLocalizations.of(context)
+                                        .formatShortDate(session.startedAt);
+                                    return AppCard(
+                                      padding: const EdgeInsets.all(AppSpacing.md),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(dateLabel, style: AppTextStyles.body),
+                                          Text(durationLabel, style: AppTextStyles.title),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
+                                if (index != recentSessions.length - 1)
+                                  const SizedBox(height: AppSpacing.sm),
+                              ],
+                            ],
                           ),
                         if (recentSessions.isNotEmpty) const SizedBox(height: AppSpacing.lg),
+                        const Spacer(),
                         PrimaryButton(
                           label: 'Back to progress',
                           onPressed: () => context.pop(),

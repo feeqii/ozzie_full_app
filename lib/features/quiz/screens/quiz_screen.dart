@@ -17,6 +17,8 @@ import '../../../core/ui/quiz_option_card.dart';
 import '../../../core/ui/recorder_module.dart';
 import '../../../core/ui/stars_row.dart';
 import '../../content/providers/content_providers.dart';
+import '../../progress/providers/progress_refresh.dart';
+import '../../progress/widgets/practice_session_boundary.dart';
 import '../../rewards/models/reward_event.dart';
 import '../models/quiz_models.dart';
 import '../providers/quiz_controller.dart';
@@ -103,6 +105,10 @@ class QuizScreen extends ConsumerWidget {
           next.isSubmitting == false &&
           next.score != null;
       if (justCompleted) {
+        if (next.childId.isNotEmpty) {
+          refreshChildProgress(ref, next.childId);
+        }
+
         final passed = next.passed == true;
         if (!passed && next.lockedUntil != null) {
           // Lock-out modal is handled above.
@@ -201,10 +207,11 @@ class QuizScreen extends ConsumerWidget {
       }
     });
 
-    return AppScaffold(
-      appBar: AppAppBar(title: quizType.label),
-      body: surahAsync.when(
-        data: (surah) {
+    return PracticeSessionBoundary(
+      child: AppScaffold(
+        appBar: AppAppBar(title: quizType.label),
+        body: surahAsync.when(
+          data: (surah) {
           if (state.questions.isEmpty) {
             return _emptyQuiz(context);
           }
@@ -372,10 +379,11 @@ class QuizScreen extends ConsumerWidget {
               ),
             ],
           );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('Unable to load quiz.', style: AppTextStyles.body),
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(
+            child: Text('Unable to load quiz.', style: AppTextStyles.body),
+          ),
         ),
       ),
     );

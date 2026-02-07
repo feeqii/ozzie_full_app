@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_bootstrap.dart';
 import 'core/app_startup_screen.dart';
+import 'core/practice_session_lifecycle_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
@@ -20,6 +21,9 @@ class OzzieApp extends ConsumerWidget {
     if (!bootstrap.isReady) {
       return const MaterialApp(home: AppStartupScreen());
     }
+
+    // Keep a single lifecycle observer active for practice session tracking.
+    ref.watch(practiceSessionLifecycleProvider);
 
     final router = ref.watch(appRouterProvider);
 
