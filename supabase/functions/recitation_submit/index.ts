@@ -21,6 +21,7 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
 const openAiEndpoint = Deno.env.get("OPENAI_TRANSCRIBE_ENDPOINT") ??
   "https://api.openai.com/v1/audio/transcriptions";
@@ -362,30 +363,29 @@ Deno.serve(async (req) => {
       return jsonResponse(409, { error: "Verse content not available yet" });
     }
 
-    // Verify the uploaded object belongs to the authenticated parent user (defense-in-depth).
-    {
-      const { data: objectRow, error: objectError } = await supabaseAdmin
-        .schema("storage")
-        .from("objects")
-        .select("id, owner, bucket_id, name")
-        .eq("bucket_id", "recitations")
-        .eq("name", audio_path)
-        .maybeSingle();
-
-      if (objectError) {
-        return jsonResponse(500, { error: "Failed to verify audio ownership" });
-      }
-      if (!objectRow) {
-        return jsonResponse(404, { error: "Audio not found" });
-      }
-      const owner = (objectRow.owner as string | null) ?? null;
-      if (owner && owner !== authData.user.id) {
-        return jsonResponse(403, { error: "Forbidden" });
-      }
-    }
-
     const maxAudioBytes = 15 * 1024 * 1024;
     const mock = shouldUseMockScoring();
+
+    if (!supabaseAnonKey || supabaseAnonKey.trim().length === 0) {
+      return jsonResponse(500, { error: "SUPABASE_ANON_KEY is not configured" });
+    }
+
+    // Download audio as the caller to enforce Storage RLS (prevents scoring someone else's upload).
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+
+    const { data: audioBlob, error: downloadError } = await supabaseUser.storage
+      .from("recitations")
+      .download(audio_path);
+
+    if (downloadError || !audioBlob) {
+      return jsonResponse(404, { error: "Audio not found" });
+    }
+
+    if (audioBlob.size > maxAudioBytes) {
+      return jsonResponse(413, { error: "Audio too large" });
+    }
 
     if (mock) {
       // Dev-only fallback to exercise the progression system end-to-end without wiring OpenAI.
@@ -396,19 +396,6 @@ Deno.serve(async (req) => {
     } else {
       if (!openAiApiKey || openAiApiKey.trim().length === 0) {
         return jsonResponse(500, { error: "OPENAI_API_KEY is not configured" });
-      }
-
-      // Download audio from Storage using service role.
-      const { data: audioBlob, error: downloadError } = await supabaseAdmin.storage
-        .from("recitations")
-        .download(audio_path);
-
-      if (downloadError || !audioBlob) {
-        return jsonResponse(404, { error: "Audio not found" });
-      }
-
-      if (audioBlob.size > maxAudioBytes) {
-        return jsonResponse(413, { error: "Audio too large" });
       }
 
       // Transcribe with OpenAI (server-side).
