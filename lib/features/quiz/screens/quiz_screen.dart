@@ -300,6 +300,13 @@ class QuizScreen extends ConsumerWidget {
                           textAlign: TextAlign.center,
                         ),
                       ],
+                      if (recitation.stage == QuizRecitationStage.fail) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        PrimaryButton(
+                          label: 'Record again',
+                          onPressed: () => recitationNotifier.setRecording(),
+                        ),
+                      ],
                     ] else if (question.hasAudio) ...[
                       const SizedBox(height: AppSpacing.lg),
                       Center(
