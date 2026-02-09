@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../map/providers/map_providers.dart';
 import '../providers/child_providers.dart';
@@ -35,18 +36,31 @@ class SurahIntroScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Surah Introduction'),
+      background: const AtlasBackground(seed: 33),
       body: Center(
         child: AppCard(
+          variant: AppCardVariant.elevated,
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Before we begin', style: AppTextStyles.title),
+              const Center(
+                child: IllustrationFrame(
+                  size: 140,
+                  child: Icon(Icons.auto_stories_rounded, size: 48),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Before we begin',
+                style: Theme.of(context).textTheme.displayLarge,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Let\'s learn what this surah is about, then we\'ll start verse by verse.',
-                style: AppTextStyles.body,
+                style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -69,4 +83,3 @@ class SurahIntroScreen extends ConsumerWidget {
     );
   }
 }
-

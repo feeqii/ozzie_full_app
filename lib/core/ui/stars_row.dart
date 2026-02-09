@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 
 class StarsRow extends StatelessWidget {
   const StarsRow({
@@ -14,6 +14,8 @@ class StarsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final glow = context.surfaces.mapGlow;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
@@ -22,7 +24,7 @@ class StarsRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Icon(
             index < filled ? Icons.star : Icons.star_border,
-            color: AppColors.textNavy,
+            color: index < filled ? glow : scheme.onSurface.withValues(alpha: 0.55),
             size: 18,
           ),
         ),

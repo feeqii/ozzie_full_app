@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/alert_banner.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/app_text_field.dart';
 import '../../../core/ui/primary_button.dart';
 import '../controllers/auth_controller.dart';
@@ -68,8 +68,10 @@ class _AuthSignInScreenState extends ConsumerState<AuthSignInScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Sign In'),
+      background: const AtlasBackground(seed: 15, intensity: 0.8, showGrid: false),
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final scheme = Theme.of(context).colorScheme;
           return SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: ConstrainedBox(
@@ -78,11 +80,13 @@ class _AuthSignInScreenState extends ConsumerState<AuthSignInScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Sign in', style: AppTextStyles.title),
+                    Text('Sign in', style: Theme.of(context).textTheme.displayLarge),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       'Welcome back to Ozzie. Login to continue your child’s journey.',
-                      style: AppTextStyles.body,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.78),
+                          ),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     AppTextField(

@@ -1,8 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
+import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 import 'primary_button.dart';
 
 enum ModalSheetVariant { success, fail, info }
@@ -27,53 +30,84 @@ class ModalSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border.all(color: AppColors.black, width: 1.4),
-      ),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (illustration != null) ...[
-              SizedBox(height: 160, child: Center(child: illustration)),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.title.copyWith(color: _titleColor()),
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+
+    final titleStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
+          color: _titleColor(scheme),
+        );
+    final bodyStyle = Theme.of(context).textTheme.bodyMedium;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: surfaces.sheet.withValues(alpha: 0.96),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.18), width: 1.6),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.lg,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 5,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: surfaces.outlineStrong.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppRadii.xl),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                if (illustration != null) ...[
+                  SizedBox(
+                    height: 170,
+                    child: Center(child: illustration),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: titleStyle,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: bodyStyle,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                primaryAction,
+                if (secondaryAction != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  secondaryAction!,
+                ],
+              ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.body,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            primaryAction,
-            if (secondaryAction != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              secondaryAction!,
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Color _titleColor() {
+  Color _titleColor(ColorScheme scheme) {
     switch (variant) {
       case ModalSheetVariant.success:
         return AppColors.success;
       case ModalSheetVariant.fail:
         return AppColors.danger;
       case ModalSheetVariant.info:
-        return AppColors.textNavy;
+        return scheme.onSurface;
     }
   }
 }
@@ -96,3 +130,4 @@ class ModalSheetTrigger {
     );
   }
 }
+

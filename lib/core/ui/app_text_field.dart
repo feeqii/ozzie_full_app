@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 class AppTextField extends StatelessWidget {
   const AppTextField({
@@ -27,37 +26,53 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.caption),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.25,
+              ),
+        ),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
           obscureText: obscureText,
           onChanged: onChanged,
+          style: Theme.of(context).textTheme.bodyLarge,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: AppTextStyles.body.copyWith(color: AppColors.textMuted),
+            hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.color
+                      ?.withValues(alpha: 0.9),
+                ),
             errorText: errorText,
             filled: true,
-            fillColor: AppColors.white,
+            fillColor: surfaces.card,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.lg,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppRadii.md),
-              borderSide: const BorderSide(color: AppColors.progressTrack),
+              borderSide: BorderSide(color: surfaces.outlineStrong.withValues(alpha: 0.16), width: 1.2),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppRadii.md),
-              borderSide: const BorderSide(color: AppColors.textNavy, width: 1.4),
+              borderSide: BorderSide(color: scheme.primary, width: 1.8),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppRadii.md),
-              borderSide: const BorderSide(color: AppColors.danger),
+              borderSide: BorderSide(color: scheme.error, width: 1.8),
             ),
           ),
         ),

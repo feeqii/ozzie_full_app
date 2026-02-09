@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/child_profile_card.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/secondary_button.dart';
@@ -21,6 +21,7 @@ class ParentDashboardScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Parent Dashboard'),
+      background: const AtlasBackground(seed: 81, intensity: 0.7, showGrid: false),
       body: childrenAsync.when(
         data: (children) {
           return LayoutBuilder(
@@ -33,7 +34,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Child summaries', style: AppTextStyles.title),
+                        Text('Child summaries', style: Theme.of(context).textTheme.displayLarge),
                         const SizedBox(height: AppSpacing.lg),
                         ...children
                             .asMap()
@@ -83,9 +84,14 @@ class ParentDashboardScreen extends ConsumerWidget {
         error: (error, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Unable to load dashboard', style: AppTextStyles.title),
+            Text('Unable to load dashboard', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text('Please try again.', style: AppTextStyles.body),
+            Text(
+              'Please try again.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.78),
+                  ),
+            ),
           ],
         ),
       ),

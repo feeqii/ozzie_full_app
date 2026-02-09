@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/empty_state.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/stat_tile.dart';
@@ -42,11 +42,14 @@ class ChildScoreScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Score'),
+      background: const AtlasBackground(seed: 43),
       body: scoreAsync.when(
         data: (summary) {
           final recentScores = summary.entries.take(5).toList();
           return LayoutBuilder(
             builder: (context, constraints) {
+              final scheme = Theme.of(context).colorScheme;
+
               return SingleChildScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
@@ -55,7 +58,7 @@ class ChildScoreScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Score overview', style: AppTextStyles.title),
+                        Text('Score overview', style: Theme.of(context).textTheme.displayLarge),
                         const SizedBox(height: AppSpacing.lg),
                         StatTile(
                           title: 'Average score',
@@ -64,21 +67,27 @@ class ChildScoreScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         AppCard(
+                          variant: AppCardVariant.soft,
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Latest score', style: AppTextStyles.caption),
+                              Text('Latest score', style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: AppSpacing.xs),
-                              Text('${summary.latestScore}%', style: AppTextStyles.title),
+                              Text('${summary.latestScore}%', style: Theme.of(context).textTheme.headlineSmall),
                             ],
                           ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
-                        Text('Recent attempts', style: AppTextStyles.title),
+                        Text('Recent attempts', style: Theme.of(context).textTheme.headlineSmall),
                         const SizedBox(height: AppSpacing.sm),
                         if (recentScores.isEmpty)
-                          Text('No attempts logged yet.', style: AppTextStyles.body)
+                          Text(
+                            'No attempts logged yet.',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurface.withValues(alpha: 0.78),
+                                ),
+                          )
                         else
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,6 +118,7 @@ class ChildScoreScreen extends ConsumerWidget {
                                     final dateLabel = MaterialLocalizations.of(context)
                                         .formatShortDate(entry.createdAt);
                                     return AppCard(
+                                      variant: AppCardVariant.soft,
                                       padding: const EdgeInsets.all(AppSpacing.md),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -118,14 +128,19 @@ class ChildScoreScreen extends ConsumerWidget {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(sourceLabel, style: AppTextStyles.caption),
+                                                Text(sourceLabel, style: Theme.of(context).textTheme.labelMedium),
                                                 const SizedBox(height: AppSpacing.xs),
-                                                Text(dateLabel, style: AppTextStyles.body),
+                                                Text(
+                                                  dateLabel,
+                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                        color: scheme.onSurface.withValues(alpha: 0.78),
+                                                      ),
+                                                ),
                                               ],
                                             ),
                                           ),
                                           const SizedBox(width: AppSpacing.md),
-                                          Text('${entry.score}%', style: AppTextStyles.title),
+                                          Text('${entry.score}%', style: Theme.of(context).textTheme.headlineSmall),
                                         ],
                                       ),
                                     );
@@ -154,9 +169,9 @@ class ChildScoreScreen extends ConsumerWidget {
         error: (error, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Unable to load scores', style: AppTextStyles.title),
+            Text('Unable to load scores', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text('Please try again.', style: AppTextStyles.body),
+            Text('Please try again.', style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),

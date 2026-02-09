@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 class OtpCodeInput extends StatefulWidget {
   const OtpCodeInput({
@@ -48,6 +47,9 @@ class _OtpCodeInputState extends State<OtpCodeInput> {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(
@@ -69,18 +71,18 @@ class _OtpCodeInputState extends State<OtpCodeInput> {
             decoration: InputDecoration(
               counterText: '',
               filled: true,
-              fillColor: AppColors.white,
+              fillColor: surfaces.card,
               contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(AppRadii.md),
-                borderSide: const BorderSide(color: AppColors.progressTrack),
+                borderSide: BorderSide(color: surfaces.outlineStrong.withValues(alpha: 0.16), width: 1.2),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(AppRadii.md),
-                borderSide: const BorderSide(color: AppColors.textNavy, width: 1.4),
+                borderSide: BorderSide(color: scheme.primary, width: 1.8),
               ),
             ),
-            style: AppTextStyles.title,
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
         ),
       ),

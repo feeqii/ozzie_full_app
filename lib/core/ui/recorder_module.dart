@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 import 'action_icon_button.dart';
 import 'illustration_frame.dart';
 import 'primary_button.dart';
@@ -17,33 +16,37 @@ class RecorderModule extends StatelessWidget {
     required this.state,
     required this.onPrimaryAction,
     this.onSecondaryAction,
+    this.onListen,
     this.durationLabel = '0:06',
   });
 
   final RecorderState state;
   final VoidCallback onPrimaryAction;
   final VoidCallback? onSecondaryAction;
+  final VoidCallback? onListen;
   final String durationLabel;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        const IllustrationFrame(
-          child: Icon(Icons.image_outlined, size: 54, color: AppColors.progressTrack),
+        IllustrationFrame(
+          variant: IllustrationFrameVariant.map,
+          child: Icon(Icons.graphic_eq_rounded, size: 54, color: scheme.onSurface),
         ),
         const SizedBox(height: AppSpacing.lg),
-        _buildActionRow(),
+        _buildActionRow(context),
         const SizedBox(height: AppSpacing.md),
         Text(
           _helperText(),
-          style: AppTextStyles.caption,
+          style: Theme.of(context).textTheme.labelMedium,
         ),
       ],
     );
   }
 
-  Widget _buildActionRow() {
+  Widget _buildActionRow(BuildContext context) {
     switch (state) {
       case RecorderState.idle:
         return ActionIconButton(
@@ -55,7 +58,7 @@ class RecorderModule extends StatelessWidget {
       case RecorderState.recording:
         return Column(
           children: [
-            _waveform(),
+            _waveform(context),
             const SizedBox(height: AppSpacing.md),
             ActionIconButton(
               icon: Icons.stop,
@@ -74,9 +77,15 @@ class RecorderModule extends StatelessWidget {
               onPressed: onSecondaryAction,
               shape: ActionIconButtonShape.round,
             ),
-            const SizedBox(width: AppSpacing.lg),
+            const SizedBox(width: AppSpacing.md),
             ActionIconButton(
-              icon: Icons.play_arrow,
+              icon: Icons.volume_up_rounded,
+              onPressed: onListen,
+              shape: ActionIconButtonShape.round,
+            ),
+            const SizedBox(width: AppSpacing.md),
+            ActionIconButton(
+              icon: Icons.check_rounded,
               onPressed: onPrimaryAction,
               shape: ActionIconButtonShape.round,
               useInnerShadow: true,
@@ -92,21 +101,22 @@ class RecorderModule extends StatelessWidget {
     }
   }
 
-  Widget _waveform() {
+  Widget _waveform(BuildContext context) {
+    final surfaces = context.surfaces;
     return Container(
       height: 38,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.gamificationLight,
+        color: surfaces.cardSubtle.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: AppColors.progressTrack, width: 1),
+        border: Border.all(color: context.surfaces.outlineStrong.withValues(alpha: 0.22), width: 1.2),
         boxShadow: AppShadows.soft,
       ),
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.only(right: AppSpacing.md),
       child: Text(
         durationLabel,
-        style: AppTextStyles.caption,
+        style: Theme.of(context).textTheme.labelMedium,
       ),
     );
   }
@@ -118,7 +128,7 @@ class RecorderModule extends StatelessWidget {
       case RecorderState.recording:
         return 'Recording...';
       case RecorderState.review:
-        return 'Review or record again';
+        return 'Listen, then submit';
       case RecorderState.submitting:
         return 'Submitting audio';
     }

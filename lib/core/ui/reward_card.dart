@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 enum RewardCardVariant { hasanat, badge, trophy }
 
@@ -21,24 +21,30 @@ class RewardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: surfaces.card,
         borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: AppColors.black, width: 1.4),
+        border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.16), width: 1.4),
       ),
       child: Row(
         children: [
-          _iconBadge(),
+          _iconBadge(context),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTextStyles.title),
+                Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: AppSpacing.xs),
-                Text(subtitle, style: AppTextStyles.body),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        height: 1.35,
+                      ),
+                ),
               ],
             ),
           ),
@@ -47,7 +53,7 @@ class RewardCard extends StatelessWidget {
     );
   }
 
-  Widget _iconBadge() {
+  Widget _iconBadge(BuildContext context) {
     final IconData icon;
     final Color color;
 

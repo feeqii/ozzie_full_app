@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/ui/action_icon_button.dart';
+import '../../core/ui/atlas_background.dart';
 import '../../core/ui/illustration_frame.dart';
 import '../../core/ui/inline_loader.dart';
 import '../../core/ui/full_screen_loader.dart';
@@ -35,20 +35,24 @@ class DesignSystemGalleryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppScaffold(
       appBar: const AppAppBar(title: 'Design System Gallery', showBack: false),
+      background: const AtlasBackground(seed: 99, intensity: 0.85),
       body: ListView(
         children: [
-          _sectionTitle('Typography'),
-          Text('Display', style: AppTextStyles.display),
+          _sectionTitle(context, 'Typography'),
+          Text('Display', style: Theme.of(context).textTheme.displayLarge),
           const SizedBox(height: AppSpacing.sm),
-          Text('Title', style: AppTextStyles.title),
+          Text('Title', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: AppSpacing.sm),
-          Text('Body', style: AppTextStyles.body),
+          Text('Body', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: AppSpacing.sm),
-          Text('Caption', style: AppTextStyles.caption),
+          Text('Caption', style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: AppSpacing.sm),
-          Text('العربية', style: AppTextStyles.arabicTitle),
+          Text(
+            'العربية',
+            style: AppTextStyles.arabicTitle.copyWith(color: Theme.of(context).colorScheme.onSurface),
+          ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Buttons'),
+          _sectionTitle(context, 'Buttons'),
           PrimaryButton(label: 'Primary', onPressed: () {}),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
@@ -75,7 +79,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           AppTextButton(label: 'Text Button', onPressed: () {}),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Action Icon Buttons'),
+          _sectionTitle(context, 'Action Icon Buttons'),
           Row(
             children: [
               ActionIconButton(icon: Icons.close, onPressed: () {}),
@@ -89,7 +93,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Modal Sheet'),
+          _sectionTitle(context, 'Modal Sheet'),
           PrimaryButton(
             label: 'Show Success Modal',
             onPressed: () {
@@ -111,19 +115,19 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             },
           ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Progress + Stars'),
+          _sectionTitle(context, 'Progress + Stars'),
           const ProgressBar(value: 0.6),
           const SizedBox(height: AppSpacing.md),
           const StarsRow(total: 6, filled: 3),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Inputs'),
+          _sectionTitle(context, 'Inputs'),
           const AppTextField(label: 'Email', hintText: 'name@example.com'),
           const SizedBox(height: AppSpacing.lg),
           const OtpCodeInput(length: 6),
           const SizedBox(height: AppSpacing.lg),
           PinInput(length: 4, onForgotPin: () {}),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Quiz Option Card'),
+          _sectionTitle(context, 'Quiz Option Card'),
           QuizOptionCard(label: 'Default option', state: QuizOptionState.normal),
           const SizedBox(height: AppSpacing.md),
           QuizOptionCard(label: 'Selected option', state: QuizOptionState.selected),
@@ -134,7 +138,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           QuizOptionCard(label: 'Disabled option', state: QuizOptionState.disabled),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Recorder Module'),
+          _sectionTitle(context, 'Recorder Module'),
           const RecorderModule(state: RecorderState.idle, onPrimaryAction: _noop),
           const SizedBox(height: AppSpacing.md),
           const RecorderModule(
@@ -146,6 +150,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             state: RecorderState.review,
             onPrimaryAction: _noop,
             onSecondaryAction: _noop,
+            onListen: _noop,
           ),
           const SizedBox(height: AppSpacing.md),
           const RecorderModule(
@@ -153,7 +158,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             onPrimaryAction: _noop,
           ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Reward Cards'),
+          _sectionTitle(context, 'Reward Cards'),
           const RewardCard(
             title: '200 Hasanat',
             subtitle: 'You earned XP for recitation.',
@@ -172,7 +177,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             variant: RewardCardVariant.trophy,
           ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Stat Tiles'),
+          _sectionTitle(context, 'Stat Tiles'),
           const StatTile(
             title: 'Streak',
             value: '2 Days',
@@ -191,7 +196,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             variant: StatTileVariant.score,
           ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Feedback + Loaders'),
+          _sectionTitle(context, 'Feedback + Loaders'),
           const AlertBanner(
             message: 'Attempts left today: 2',
             variant: AlertBannerVariant.warning,
@@ -201,7 +206,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           const FullScreenLoader(message: 'Uploading...'),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Settings + Profiles'),
+          _sectionTitle(context, 'Settings + Profiles'),
           const SettingsRow(label: 'Daily Attempts', value: '6', showChevron: true),
           const SizedBox(height: AppSpacing.md),
           const SettingsRow(
@@ -220,9 +225,9 @@ class DesignSystemGalleryScreen extends StatelessWidget {
             onPressed: () {},
           ),
           const SizedBox(height: AppSpacing.xl),
-          _sectionTitle('Illustration Frame'),
+          _sectionTitle(context, 'Illustration Frame'),
           const IllustrationFrame(
-            child: Icon(Icons.image_outlined, color: AppColors.progressTrack),
+            child: Icon(Icons.image_outlined),
           ),
           const SizedBox(height: AppSpacing.xxl),
         ],
@@ -230,12 +235,12 @@ class DesignSystemGalleryScreen extends StatelessWidget {
     );
   }
 
-  static Widget _sectionTitle(String title) {
+  static Widget _sectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Text(
         title,
-        style: AppTextStyles.title,
+        style: Theme.of(context).textTheme.headlineSmall,
       ),
     );
   }

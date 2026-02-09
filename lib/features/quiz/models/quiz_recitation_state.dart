@@ -86,10 +86,10 @@ class QuizRecitationState {
       return 'Try again tomorrow.';
     }
     if (passed == true && score != null) {
-      return 'Passed (${score}%)';
+      return 'Passed ($score%)';
     }
     if (stage == QuizRecitationStage.fail && score != null) {
-      return 'Try again (${score}%)';
+      return 'Try again ($score%)';
     }
     return 'Record and submit to continue.';
   }

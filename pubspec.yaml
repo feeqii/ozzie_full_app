@@ -75,6 +75,9 @@ flutter:
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter.ttf
+    - family: Baloo2
+      fonts:
+        - asset: assets/fonts/Baloo2-Variable.ttf
     - family: NotoNaskhArabic
       fonts:
         - asset: assets/fonts/NotoNaskhArabic.ttf

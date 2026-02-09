@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/alert_banner.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/app_text_field.dart';
 import '../../../core/ui/primary_button.dart';
 import '../controllers/auth_controller.dart';
@@ -71,8 +71,10 @@ class _AuthSignUpScreenState extends ConsumerState<AuthSignUpScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Sign Up'),
+      background: const AtlasBackground(seed: 17, intensity: 0.8, showGrid: false),
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final scheme = Theme.of(context).colorScheme;
           return SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: ConstrainedBox(
@@ -81,10 +83,14 @@ class _AuthSignUpScreenState extends ConsumerState<AuthSignUpScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Create your account', style: AppTextStyles.title),
+                    Text('Create your account', style: Theme.of(context).textTheme.displayLarge),
                     const SizedBox(height: AppSpacing.sm),
-                    Text('We will send a verification code to your email.',
-                        style: AppTextStyles.body),
+                    Text(
+                      'We will send a verification code to your email.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.78),
+                          ),
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     AppTextField(
                       label: 'Enter your email',

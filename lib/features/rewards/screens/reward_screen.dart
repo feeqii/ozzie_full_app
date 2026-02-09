@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_extensions.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/reward_card.dart';
@@ -26,8 +26,18 @@ class RewardScreen extends StatelessWidget {
     final event = args.event;
     return AppScaffold(
       appBar: const AppAppBar(title: 'Rewards', showBack: false),
+      contentPadding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      background: const AtlasBackground(seed: 31),
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final scheme = Theme.of(context).colorScheme;
+          final surfaces = context.surfaces;
+
           return SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: ConstrainedBox(
@@ -36,9 +46,19 @@ class RewardScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(event.title, style: AppTextStyles.title),
+                    Text(
+                      event.title,
+                      style: Theme.of(context).textTheme.displayLarge,
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: AppSpacing.sm),
-                    Text(event.message, style: AppTextStyles.body),
+                    Text(
+                      event.message,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.78),
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     Center(
                       child: IllustrationFrame(
@@ -46,7 +66,7 @@ class RewardScreen extends StatelessWidget {
                         child: Icon(
                           _iconFor(event.type),
                           size: 48,
-                          color: AppColors.textNavy,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
@@ -76,6 +96,27 @@ class RewardScreen extends StatelessWidget {
                         onPressed: () => context.go(args.secondaryRoute!),
                       ),
                     ],
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: surfaces.card.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: surfaces.outlineStrong.withValues(alpha: 0.14),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Text(
+                        event.type == RewardType.trophy
+                            ? 'A trophy means a big milestone. Take a moment to celebrate, then head back to the map.'
+                            : 'Collect rewards by practicing every day. Your progress unlocks new planets and levels.',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: scheme.onSurface.withValues(alpha: 0.74),
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -100,11 +141,11 @@ class RewardScreen extends StatelessWidget {
   IconData _iconFor(RewardType type) {
     switch (type) {
       case RewardType.hasanat:
-        return Icons.brightness_1;
+        return Icons.auto_awesome_rounded;
       case RewardType.badge:
-        return Icons.emoji_events_outlined;
+        return Icons.workspace_premium_rounded;
       case RewardType.trophy:
-        return Icons.military_tech_outlined;
+        return Icons.emoji_events_rounded;
     }
   }
 }

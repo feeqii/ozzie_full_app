@@ -9,6 +9,8 @@ import '../../../core/ui/alert_banner.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/label_chip.dart';
 import '../../../core/ui/modal_sheet.dart';
 import '../../../core/ui/primary_button.dart';
@@ -70,7 +72,7 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
           next.stage != RecitationStage.uploading &&
           (next.errorMessage == null || next.errorMessage!.isEmpty);
       if (finishedUpload && next.childId.isNotEmpty) {
-        refreshChildProgress(ref, next.childId);
+        refreshChildProgress(ref.invalidate, next.childId);
       }
 
       if (previous?.errorMessage != next.errorMessage && next.errorMessage != null && next.errorMessage!.isNotEmpty) {
@@ -83,6 +85,55 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
             primaryAction: PrimaryButton(
               label: 'Okay',
               onPressed: () => context.pop(),
+            ),
+          ),
+        );
+      }
+
+      final stageChanged = previous?.stage != next.stage;
+      if (stageChanged &&
+          (next.stage == RecitationStage.feedbackSuccess || next.stage == RecitationStage.feedbackFail) &&
+          next.rewardEvent == null) {
+        final passed = next.stage == RecitationStage.feedbackSuccess;
+        final remaining = next.passesRemaining;
+        final message = () {
+          if (remaining == null) {
+            return passed ? 'Nice work. Let\'s do it again to master it.' : 'Not quite. Try again and listen carefully.';
+          }
+          if (remaining <= 0) {
+            return passed ? 'Ayah mastered. Great job.' : 'Try again to master it.';
+          }
+          return passed ? '$remaining passes to go. Record again to master it.' : '$remaining passes to go. Try again.';
+        }();
+
+        ModalSheetTrigger.show(
+          context,
+          sheet: ModalSheet(
+            title: passed ? 'Nice work' : 'Try again',
+            message: message,
+            variant: passed ? ModalSheetVariant.success : ModalSheetVariant.fail,
+            illustration: IllustrationFrame(
+              size: 150,
+              child: Icon(
+                passed ? Icons.verified_rounded : Icons.refresh_rounded,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            primaryAction: PrimaryButton(
+              label: passed ? 'Record again' : 'Try again',
+              onPressed: () {
+                context.pop();
+                notifier.setRecording();
+              },
+            ),
+            secondaryAction: PrimaryButton(
+              label: 'Back to learn',
+              variant: PrimaryButtonVariant.warning,
+              onPressed: () {
+                context.pop();
+                context.pop();
+              },
             ),
           ),
         );
@@ -149,7 +200,10 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
             variant: ModalSheetVariant.info,
             primaryAction: PrimaryButton(
               label: 'Back to learn',
-              onPressed: () => context.pop(),
+              onPressed: () {
+                context.pop();
+                context.pop();
+              },
             ),
           ),
         );
@@ -172,10 +226,18 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
 
     return PracticeSessionBoundary(
       child: AppScaffold(
-        appBar: const AppAppBar(title: 'Recitation Practice'),
+        appBar: const AppAppBar(title: 'Practice'),
+        contentPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        background: const AtlasBackground(),
         body: surahAsync.when(
           data: (surah) {
             final ayah = surah.ayahs.firstWhere((item) => item.id == ayahId, orElse: () => surah.ayahs.first);
+            final scheme = Theme.of(context).colorScheme;
             return LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
@@ -191,24 +253,39 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
                               LabelChip(label: 'Surah $surahId'),
                               const SizedBox(width: AppSpacing.sm),
                               LabelChip(label: 'Ayah $ayahId'),
+                              const Spacer(),
+                              if (controller.passesRemaining != null)
+                                LabelChip(
+                                  label: '${controller.passesRemaining} left',
+                                  background: scheme.primary.withValues(alpha: 0.14),
+                                  borderColor: scheme.primary.withValues(alpha: 0.75),
+                                  foregroundColor: scheme.onSurface,
+                                ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.lg),
                           AppCard(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            variant: AppCardVariant.elevated,
+                            padding: const EdgeInsets.all(AppSpacing.xl),
                             child: Column(
                               children: [
                                 Text(
                                   controller.shouldBlurVerse ? _blurText(ayah.arabic) : ayah.arabic,
-                                  style: AppTextStyles.arabicTitle,
+                                  style: AppTextStyles.arabicTitle.copyWith(color: scheme.onSurface),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
-                                Text(ayah.translation, style: AppTextStyles.body, textAlign: TextAlign.center),
+                                Text(
+                                  ayah.translation,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: scheme.onSurface.withValues(alpha: 0.78),
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.lg),
                           if (controller.attemptsLeftToday != null)
                             AlertBanner(
                               message: '${controller.attemptsLeftToday} attempts left today',
@@ -228,43 +305,31 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
                                 case RecitationStage.review:
                                   notifier.submitRecording();
                                   break;
-                                case RecitationStage.uploading:
                                 case RecitationStage.feedbackSuccess:
                                 case RecitationStage.feedbackFail:
+                                  notifier.setRecording();
+                                  break;
+                                case RecitationStage.uploading:
                                 case RecitationStage.interventionRequired:
                                 case RecitationStage.lockedOut:
                                 case RecitationStage.gateToQuiz:
                                   break;
                               }
                             },
-                            onSecondaryAction: () {
-                              notifier.playRecording();
-                            },
+                            onSecondaryAction: () => notifier.setRecording(),
+                            onListen: () => notifier.playRecording(),
                             durationLabel: controller.durationLabel,
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           Text(
                             controller.resultSummary(),
-                            style: AppTextStyles.body,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurface.withValues(alpha: 0.78),
+                                  fontWeight: FontWeight.w600,
+                                ),
                             textAlign: TextAlign.center,
                           ),
                           const Spacer(),
-                          if (controller.stage == RecitationStage.feedbackSuccess ||
-                              controller.stage == RecitationStage.feedbackFail)
-                            PrimaryButton(
-                              label: 'Practice again',
-                              onPressed: () => notifier.setRecording(),
-                            ),
-                          if (controller.stage == RecitationStage.review) ...[
-                            PrimaryButton(
-                              label: 'Play recording',
-                              onPressed: () => notifier.playRecording(),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                          ],
-                          if (controller.stage == RecitationStage.feedbackSuccess ||
-                              controller.stage == RecitationStage.feedbackFail)
-                            const SizedBox(height: AppSpacing.sm),
                           SecondaryButton(
                             label: 'Back to learn',
                             onPressed: () => context.pop(),
@@ -279,7 +344,10 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(
-            child: Text('Unable to load recitation.', style: AppTextStyles.body),
+            child: Text(
+              'Unable to load recitation.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ),
       ),
@@ -293,14 +361,15 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
       case RecitationStage.recording:
         return RecorderState.recording;
       case RecitationStage.review:
-      case RecitationStage.feedbackSuccess:
-      case RecitationStage.feedbackFail:
-      case RecitationStage.interventionRequired:
         return RecorderState.review;
       case RecitationStage.uploading:
+      case RecitationStage.interventionRequired:
       case RecitationStage.lockedOut:
       case RecitationStage.gateToQuiz:
         return RecorderState.submitting;
+      case RecitationStage.feedbackSuccess:
+      case RecitationStage.feedbackFail:
+        return RecorderState.idle;
     }
   }
 

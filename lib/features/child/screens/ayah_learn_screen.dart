@@ -7,6 +7,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/secondary_button.dart';
@@ -29,7 +30,8 @@ class AyahLearnScreen extends ConsumerWidget {
 
     return PracticeSessionBoundary(
       child: AppScaffold(
-        appBar: const AppAppBar(title: 'Ayah Learn'),
+        appBar: const AppAppBar(title: 'Ayah'),
+        background: const AtlasBackground(seed: 29),
         body: surahAsync.when(
           data: (surah) {
             final ayah = surah.ayahs.firstWhere(
@@ -47,33 +49,44 @@ class AyahLearnScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const IllustrationFrame(
-                            size: 180,
-                            child: Icon(Icons.menu_book, size: 48),
+                          IllustrationFrame(
+                            size: 190,
+                            child: Icon(
+                              Icons.auto_stories_rounded,
+                              size: 56,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           AppCard(
+                            variant: AppCardVariant.elevated,
                             padding: const EdgeInsets.all(AppSpacing.lg),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text('Ayah ${ayah.id}', style: AppTextStyles.caption),
+                                Text(
+                                  'AYAH ${ayah.id}',
+                                  style: Theme.of(context).textTheme.labelMedium,
+                                  textAlign: TextAlign.center,
+                                ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
                                   ayah.arabic,
-                                  style: AppTextStyles.arabicTitle,
+                                  style: AppTextStyles.arabicTitle.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
                                   ayah.transliteration,
-                                  style: AppTextStyles.body,
+                                  style: Theme.of(context).textTheme.bodyMedium,
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
                                   ayah.translation,
-                                  style: AppTextStyles.body,
+                                  style: Theme.of(context).textTheme.bodyMedium,
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -81,13 +94,14 @@ class AyahLearnScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           AppCard(
+                            variant: AppCardVariant.soft,
                             padding: const EdgeInsets.all(AppSpacing.lg),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Meaning', style: AppTextStyles.title),
+                                Text('Meaning', style: Theme.of(context).textTheme.headlineSmall),
                                 const SizedBox(height: AppSpacing.sm),
-                                Text(ayah.meaning, style: AppTextStyles.body),
+                                Text(ayah.meaning, style: Theme.of(context).textTheme.bodyMedium),
                               ],
                             ),
                           ),
@@ -98,7 +112,7 @@ class AyahLearnScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           SecondaryButton(
-                            label: 'Back to overview',
+                            label: 'Back',
                             onPressed: () => context.pop(),
                           ),
                         ],
@@ -111,7 +125,7 @@ class AyahLearnScreen extends ConsumerWidget {
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(
-            child: Text('Unable to load ayah.', style: AppTextStyles.body),
+            child: Text('Unable to load ayah.', style: Theme.of(context).textTheme.bodyMedium),
           ),
         ),
       ),

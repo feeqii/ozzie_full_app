@@ -3,14 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_extensions.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/alert_banner.dart';
-import '../../../core/ui/action_icon_button.dart';
 import '../../../core/ui/app_app_bar.dart';
+import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/inline_loader.dart';
+import '../../../core/ui/label_chip.dart';
 import '../../../core/ui/modal_sheet.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/quiz_option_card.dart';
@@ -84,13 +86,20 @@ class QuizScreen extends ConsumerWidget {
 
       if (previous?.lockedUntil != next.lockedUntil &&
           next.lockedUntil != null) {
-        final lockedUntil = next.lockedUntil!;
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Try again tomorrow',
             message: 'You have reached the maximum attempts for today.',
             variant: ModalSheetVariant.info,
+            illustration: IllustrationFrame(
+              size: 150,
+              child: Icon(
+                Icons.bedtime_rounded,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
             primaryAction: PrimaryButton(
               label: 'Back home',
               onPressed: () => context.go('/child/home'),
@@ -106,7 +115,7 @@ class QuizScreen extends ConsumerWidget {
           next.score != null;
       if (justCompleted) {
         if (next.childId.isNotEmpty) {
-          refreshChildProgress(ref, next.childId);
+          refreshChildProgress(ref.invalidate, next.childId);
         }
 
         final passed = next.passed == true;
@@ -117,13 +126,21 @@ class QuizScreen extends ConsumerWidget {
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
-            title: passed ? 'Good job 🎉' : 'Let\'s try again',
+            title: passed ? 'Nice work' : 'Not quite',
             message: passed
                 ? 'You answered correctly. Keep going!'
                 : 'Review the lesson and try the quiz again.',
             variant: passed
                 ? ModalSheetVariant.success
                 : ModalSheetVariant.fail,
+            illustration: IllustrationFrame(
+              size: 150,
+              child: Icon(
+                passed ? Icons.verified_rounded : Icons.refresh_rounded,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
             primaryAction: PrimaryButton(
               label: passed ? 'Continue' : 'Try again',
               onPressed: () {
@@ -198,6 +215,14 @@ class QuizScreen extends ConsumerWidget {
             title: 'Try again tomorrow',
             message: 'You have used all attempts for today.',
             variant: ModalSheetVariant.info,
+            illustration: IllustrationFrame(
+              size: 150,
+              child: Icon(
+                Icons.bedtime_rounded,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
             primaryAction: PrimaryButton(
               label: 'Back home',
               onPressed: () => context.go('/child/home'),
@@ -210,179 +235,214 @@ class QuizScreen extends ConsumerWidget {
     return PracticeSessionBoundary(
       child: AppScaffold(
         appBar: AppAppBar(title: quizType.label),
+        contentPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        background: const AtlasBackground(seed: 21),
         body: surahAsync.when(
           data: (surah) {
-          if (state.questions.isEmpty) {
-            return _emptyQuiz(context);
-          }
+            if (state.questions.isEmpty) {
+              return _emptyQuiz(context);
+            }
 
-          final question = state.questions[state.currentIndex];
-          final isRecitePrompt = question.type == QuizQuestionType.recitePrompt;
-          final recitePassed = recitation.passed == true;
-          final canContinueRecite = !isRecitePrompt || recitePassed;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  ActionIconButton(
-                    icon: Icons.arrow_back,
-                    shape: ActionIconButtonShape.round,
-                    onPressed: () => context.pop(),
-                  ),
-                  const Spacer(),
-                  Text('Surah ${surah.id}', style: AppTextStyles.caption),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              StarsRow(
-                total: state.questions.length,
-                filled: state.currentIndex,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.gamificationLight,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      question.title.toUpperCase(),
-                      style: AppTextStyles.caption,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(question.prompt, style: AppTextStyles.title),
-                    if (question.context != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(question.context!, style: AppTextStyles.body),
-                    ],
-                    if (isRecitePrompt) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      if (recitation.attemptsLeftToday != null)
-                        AlertBanner(
-                          message:
-                              '${recitation.attemptsLeftToday} attempts left today',
-                          variant: AlertBannerVariant.warning,
-                        ),
-                      const SizedBox(height: AppSpacing.md),
-                      RecorderModule(
-                        state: _mapRecorderState(recitation.stage),
-                        onPrimaryAction: () {
-                          switch (recitation.stage) {
-                            case QuizRecitationStage.idle:
-                              recitationNotifier.setRecording();
-                              break;
-                            case QuizRecitationStage.recording:
-                              recitationNotifier.stopRecording();
-                              break;
-                            case QuizRecitationStage.review:
-                              recitationNotifier.submitRecording();
-                              break;
-                            case QuizRecitationStage.submitting:
-                            case QuizRecitationStage.success:
-                            case QuizRecitationStage.fail:
-                            case QuizRecitationStage.lockedOut:
-                              break;
-                          }
-                        },
-                        onSecondaryAction: () =>
-                            recitationNotifier.playRecording(),
-                        durationLabel: recitation.durationLabel,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        recitation.resultSummary(),
-                        style: AppTextStyles.body,
-                        textAlign: TextAlign.center,
-                      ),
-                      if (recitation.transcript != null &&
-                          recitation.transcript!.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          recitation.transcript!,
-                          style: AppTextStyles.caption,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                      if (recitation.stage == QuizRecitationStage.fail) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        PrimaryButton(
-                          label: 'Record again',
-                          onPressed: () => recitationNotifier.setRecording(),
-                        ),
-                      ],
-                    ] else if (question.hasAudio) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      Center(
-                        child: Icon(
-                          Icons.volume_up,
-                          size: 40,
-                          color: AppColors.textNavy,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              if (question.hasOptions)
+            final scheme = Theme.of(context).colorScheme;
+            final surfaces = context.surfaces;
+
+            final question = state.questions[state.currentIndex];
+            final qIndex = state.currentIndex + 1;
+            final total = state.questions.length;
+            final isRecitePrompt = question.type == QuizQuestionType.recitePrompt;
+            final recitePassed = recitation.passed == true;
+            final canContinueRecite = !isRecitePrompt || recitePassed;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Expanded(
-                  child: ListView.separated(
-                    itemCount: question.options.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.md),
-                    itemBuilder: (context, index) {
-                      final option = question.options[index];
-                      return QuizOptionCard(
-                        label: option.label,
-                        state: notifier.optionState(question, option),
-                        onTap: () =>
-                            notifier.selectOption(question.id, option.id),
-                      );
-                    },
+                  child: ListView(
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    children: [
+                      Row(
+                        children: [
+                          LabelChip(
+                            label: 'Surah ${surah.id}',
+                            background: surfaces.card.withValues(alpha: 0.74),
+                            borderColor: surfaces.outlineStrong.withValues(alpha: 0.18),
+                            foregroundColor: scheme.onSurface,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          LabelChip(
+                            label: 'Q $qIndex/$total',
+                            background: scheme.primary.withValues(alpha: 0.14),
+                            borderColor: scheme.primary.withValues(alpha: 0.75),
+                            foregroundColor: scheme.onSurface,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      StarsRow(total: total, filled: state.currentIndex),
+                      const SizedBox(height: AppSpacing.lg),
+                      AppCard(
+                        variant: AppCardVariant.elevated,
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              question.title.toUpperCase(),
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    letterSpacing: 0.45,
+                                    fontWeight: FontWeight.w900,
+                                    color: scheme.onSurface.withValues(alpha: 0.7),
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              question.prompt,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            if (question.context != null) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                question.context!,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: scheme.onSurface.withValues(alpha: 0.78),
+                                    ),
+                              ),
+                            ],
+                            if (isRecitePrompt) ...[
+                              const SizedBox(height: AppSpacing.lg),
+                              if (recitation.attemptsLeftToday != null)
+                                AlertBanner(
+                                  message: '${recitation.attemptsLeftToday} attempts left today',
+                                  variant: AlertBannerVariant.warning,
+                                ),
+                              const SizedBox(height: AppSpacing.md),
+                              RecorderModule(
+                                state: _mapRecorderState(recitation.stage),
+                                onPrimaryAction: () {
+                                  switch (recitation.stage) {
+                                    case QuizRecitationStage.idle:
+                                    case QuizRecitationStage.success:
+                                    case QuizRecitationStage.fail:
+                                      recitationNotifier.setRecording();
+                                      break;
+                                    case QuizRecitationStage.recording:
+                                      recitationNotifier.stopRecording();
+                                      break;
+                                    case QuizRecitationStage.review:
+                                      recitationNotifier.submitRecording();
+                                      break;
+                                    case QuizRecitationStage.submitting:
+                                    case QuizRecitationStage.lockedOut:
+                                      break;
+                                  }
+                                },
+                                onSecondaryAction: () => recitationNotifier.setRecording(),
+                                onListen: () => recitationNotifier.playRecording(),
+                                durationLabel: recitation.durationLabel,
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              Text(
+                                recitation.resultSummary(),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: recitation.passed == true
+                                          ? scheme.primary
+                                          : scheme.onSurface.withValues(alpha: 0.78),
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (recitation.transcript != null && recitation.transcript!.isNotEmpty) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  recitation.transcript!,
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                        color: scheme.onSurface.withValues(alpha: 0.72),
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                              if (recitation.stage == QuizRecitationStage.fail) ...[
+                                const SizedBox(height: AppSpacing.md),
+                                PrimaryButton(
+                                  label: 'Record again',
+                                  variant: PrimaryButtonVariant.warning,
+                                  onPressed: () => recitationNotifier.setRecording(),
+                                ),
+                              ],
+                            ] else if (question.hasAudio) ...[
+                              const SizedBox(height: AppSpacing.lg),
+                              Center(
+                                child: Icon(
+                                  Icons.volume_up_rounded,
+                                  size: 40,
+                                  color: scheme.onSurface.withValues(alpha: 0.78),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (question.hasOptions) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        for (var index = 0; index < question.options.length; index++) ...[
+                          QuizOptionCard(
+                            label: question.options[index].label,
+                            state: notifier.optionState(question, question.options[index]),
+                            onTap: () => notifier.selectOption(
+                              question.id,
+                              question.options[index].id,
+                            ),
+                          ),
+                          if (index != question.options.length - 1) const SizedBox(height: AppSpacing.md),
+                        ],
+                      ],
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
                   ),
                 ),
-              if (!question.hasOptions) const Spacer(),
-              const SizedBox(height: AppSpacing.md),
-              PrimaryButton(
-                label: _primaryLabel(state, question),
-                isDisabled:
-                    (question.hasOptions &&
-                        !state.selections.containsKey(question.id)) ||
-                    !canContinueRecite,
-                isLoading: state.isSubmitting,
-                onPressed: () async {
-                  if (isRecitePrompt) {
-                    if (!canContinueRecite) {
+                const SizedBox(height: AppSpacing.md),
+                PrimaryButton(
+                  label: _primaryLabel(state, question),
+                  isDisabled:
+                      (question.hasOptions && !state.selections.containsKey(question.id)) || !canContinueRecite,
+                  isLoading: state.isSubmitting,
+                  onPressed: () async {
+                    if (isRecitePrompt) {
+                      if (!canContinueRecite) {
+                        return;
+                      }
+                      if (state.currentIndex < state.questions.length - 1) {
+                        notifier.nextQuestion();
+                        return;
+                      }
+                      await notifier.submitQuiz();
                       return;
                     }
-                    if (state.currentIndex < state.questions.length - 1) {
+                    if (!state.showFeedback) {
+                      await notifier.submitCurrentAnswer();
+                      return;
+                    }
+                    if (!notifier.isLastQuestion) {
                       notifier.nextQuestion();
                       return;
                     }
                     await notifier.submitQuiz();
-                    return;
-                  }
-                  if (!state.showFeedback) {
-                    await notifier.submitCurrentAnswer();
-                    return;
-                  }
-                  if (!notifier.isLastQuestion) {
-                    notifier.nextQuestion();
-                    return;
-                  }
-                  await notifier.submitQuiz();
-                },
-              ),
-            ],
-          );
+                  },
+                ),
+              ],
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(
-            child: Text('Unable to load quiz.', style: AppTextStyles.body),
+            child: Text(
+              'Unable to load quiz.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ),
       ),
@@ -396,12 +456,13 @@ class QuizScreen extends ConsumerWidget {
       case QuizRecitationStage.recording:
         return RecorderState.recording;
       case QuizRecitationStage.review:
-      case QuizRecitationStage.success:
-      case QuizRecitationStage.fail:
         return RecorderState.review;
       case QuizRecitationStage.submitting:
-      case QuizRecitationStage.lockedOut:
         return RecorderState.submitting;
+      case QuizRecitationStage.success:
+      case QuizRecitationStage.fail:
+      case QuizRecitationStage.lockedOut:
+        return RecorderState.idle;
     }
   }
 
@@ -425,7 +486,11 @@ class QuizScreen extends ConsumerWidget {
         children: [
           const InlineLoader(),
           const SizedBox(height: AppSpacing.md),
-          Text('Quiz content is not available yet.', style: AppTextStyles.body),
+          Text(
+            'Quiz content is not available yet.',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

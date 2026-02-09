@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
-
 class AppSnackbar {
   const AppSnackbar._();
 
@@ -11,12 +8,16 @@ class AppSnackbar {
     required String message,
     bool isError = false,
   }) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = isError ? scheme.error : scheme.inverseSurface;
+    final fg = isError ? scheme.onError : scheme.onInverseSurface;
+
     final snackBar = SnackBar(
       content: Text(
         message,
-        style: AppTextStyles.body.copyWith(color: AppColors.white),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg),
       ),
-      backgroundColor: isError ? AppColors.danger : AppColors.textNavy,
+      backgroundColor: bg,
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 3),
     );

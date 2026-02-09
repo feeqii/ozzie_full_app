@@ -30,6 +30,8 @@ class OzzieApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Ozzie Quran App',
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
       routerConfig: router,
     );
   }

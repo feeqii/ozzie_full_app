@@ -1,29 +1,40 @@
 import 'package:flutter/material.dart';
-
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
+import 'package:flutter/services.dart';
 
 class AppTextButton extends StatelessWidget {
   const AppTextButton({
     super.key,
     required this.label,
     this.onPressed,
+    this.haptic = true,
   });
 
   final String label;
   final VoidCallback? onPressed;
+  final bool haptic;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return TextButton(
-      onPressed: onPressed,
+      onPressed: onPressed == null
+          ? null
+          : () {
+              if (haptic) HapticFeedback.selectionClick();
+              onPressed?.call();
+            },
+      style: TextButton.styleFrom(
+        foregroundColor: scheme.primary,
+      ),
       child: Text(
         label,
-        style: AppTextStyles.body.copyWith(
-          fontWeight: FontWeight.w600,
-          color: AppColors.textNavy,
-          decoration: TextDecoration.underline,
-        ),
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              decoration: TextDecoration.underline,
+              decorationColor: scheme.primary.withValues(alpha: 0.65),
+              decorationThickness: 2,
+            ),
       ),
     );
   }

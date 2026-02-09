@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/empty_state.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/stat_tile.dart';
@@ -42,6 +42,7 @@ class ChildStreakScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Streak'),
+      background: const AtlasBackground(seed: 47),
       body: streakAsync.when(
         data: (streak) {
           final lastPractice = streak.lastPracticeDate == null
@@ -49,6 +50,8 @@ class ChildStreakScreen extends ConsumerWidget {
               : MaterialLocalizations.of(context).formatShortDate(streak.lastPracticeDate!);
           return LayoutBuilder(
             builder: (context, constraints) {
+              final scheme = Theme.of(context).colorScheme;
+
               return SingleChildScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
@@ -57,7 +60,7 @@ class ChildStreakScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Keep the streak going!', style: AppTextStyles.title),
+                        Text('Keep the streak going!', style: Theme.of(context).textTheme.displayLarge),
                         const SizedBox(height: AppSpacing.lg),
                         StatTile(
                           title: 'Current streak',
@@ -72,13 +75,19 @@ class ChildStreakScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         AppCard(
+                          variant: AppCardVariant.soft,
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Last practice', style: AppTextStyles.caption),
+                              Text('Last practice', style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: AppSpacing.xs),
-                              Text(lastPractice, style: AppTextStyles.body),
+                              Text(
+                                lastPractice,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: scheme.onSurface.withValues(alpha: 0.78),
+                                    ),
+                              ),
                             ],
                           ),
                         ),
@@ -99,9 +108,9 @@ class ChildStreakScreen extends ConsumerWidget {
         error: (error, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Unable to load streak', style: AppTextStyles.title),
+            Text('Unable to load streak', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text('Please try again.', style: AppTextStyles.body),
+            Text('Please try again.', style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),

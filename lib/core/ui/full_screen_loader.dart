@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_spacing.dart';
 
 class FullScreenLoader extends StatelessWidget {
@@ -14,17 +13,18 @@ class FullScreenLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final surfaces = context.surfaces;
+
     return Container(
-      color: AppColors.white.withValues(alpha: 0.9),
+      color: surfaces.canvas.withValues(alpha: 0.92),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.textNavy),
-            ),
+            CircularProgressIndicator(color: scheme.primary),
             const SizedBox(height: AppSpacing.md),
-            Text(message, style: AppTextStyles.body),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),

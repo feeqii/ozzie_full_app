@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/empty_state.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/stat_tile.dart';
@@ -59,10 +59,13 @@ class ChildProgressHomeScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Progress'),
+      background: const AtlasBackground(seed: 41),
       body: summaryAsync.when(
         data: (summary) {
           return LayoutBuilder(
             builder: (context, constraints) {
+              final scheme = Theme.of(context).colorScheme;
+
               return SingleChildScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
@@ -73,10 +76,15 @@ class ChildProgressHomeScreen extends ConsumerWidget {
                       children: [
                         Text(
                           childName == null ? 'Your progress' : 'Progress for $childName',
-                          style: AppTextStyles.title,
+                          style: Theme.of(context).textTheme.displayLarge,
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        Text('Track streaks, score, and recitation time.', style: AppTextStyles.body),
+                        Text(
+                          'Track streaks, score, and recitation time.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurface.withValues(alpha: 0.78),
+                              ),
+                        ),
                         const SizedBox(height: AppSpacing.lg),
                         StatTile(
                           title: 'Streak',
@@ -100,13 +108,14 @@ class ChildProgressHomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         AppCard(
+                          variant: AppCardVariant.soft,
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Best streak', style: AppTextStyles.caption),
+                              Text('Best streak', style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: AppSpacing.xs),
-                              Text('${summary.streak.bestStreak} days', style: AppTextStyles.title),
+                              Text('${summary.streak.bestStreak} days', style: Theme.of(context).textTheme.headlineSmall),
                             ],
                           ),
                         ),
@@ -127,9 +136,9 @@ class ChildProgressHomeScreen extends ConsumerWidget {
         error: (error, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Unable to load progress', style: AppTextStyles.title),
+            Text('Unable to load progress', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text('Please try again.', style: AppTextStyles.body),
+            Text('Please try again.', style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),

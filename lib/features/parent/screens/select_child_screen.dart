@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/app_snackbar.dart';
 import '../../../core/ui/child_profile_card.dart';
 import '../../../core/ui/empty_state.dart';
@@ -30,6 +30,7 @@ class SelectChildScreen extends ConsumerWidget {
           ),
         ],
       ),
+      background: const AtlasBackground(seed: 77, intensity: 0.7, showGrid: false),
       body: childrenAsync.when(
         data: (children) {
           if (children.isEmpty) {
@@ -51,7 +52,7 @@ class SelectChildScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Select a child', style: AppTextStyles.title),
+                        Text('Select a child', style: Theme.of(context).textTheme.displayLarge),
                         const SizedBox(height: AppSpacing.lg),
                         ...children
                             .asMap()
@@ -93,9 +94,12 @@ class SelectChildScreen extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Unable to load children', style: AppTextStyles.title),
+              Text('Unable to load children', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: AppSpacing.sm),
-              Text('Please try again.', style: AppTextStyles.body),
+              Text(
+                'Please try again.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
                 label: 'Retry',

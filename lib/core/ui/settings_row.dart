@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
@@ -23,6 +22,9 @@ class SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadii.md),
@@ -32,21 +34,33 @@ class SettingsRow extends StatelessWidget {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: surfaces.card,
           borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(color: AppColors.progressTrack, width: 1.2),
+          border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.16), width: 1.2),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(label, style: AppTextStyles.body),
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
             ),
             if (value != null) ...[
-              Text(value!, style: AppTextStyles.caption),
+              Text(
+                value!,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurface.withValues(alpha: 0.75),
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
               const SizedBox(width: AppSpacing.sm),
             ],
             if (trailing != null) trailing!,
-            if (showChevron) const Icon(Icons.chevron_right),
+            if (showChevron) Icon(Icons.chevron_right, color: scheme.onSurface.withValues(alpha: 0.78)),
           ],
         ),
       ),

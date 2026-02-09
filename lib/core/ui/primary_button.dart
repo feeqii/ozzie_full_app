@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
-import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 enum PrimaryButtonVariant { primary, success, warning, danger }
 
-class PrimaryButton extends StatelessWidget {
+class PrimaryButton extends StatefulWidget {
   const PrimaryButton({
     super.key,
     required this.label,
@@ -17,6 +17,7 @@ class PrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.isDisabled = false,
     this.fullWidth = true,
+    this.haptic = true,
   });
 
   final String label;
@@ -25,70 +26,121 @@ class PrimaryButton extends StatelessWidget {
   final bool isLoading;
   final bool isDisabled;
   final bool fullWidth;
+  final bool haptic;
 
-  bool get _disabled => isDisabled || onPressed == null || isLoading;
+  @override
+  State<PrimaryButton> createState() => _PrimaryButtonState();
+}
+
+class _PrimaryButtonState extends State<PrimaryButton> {
+  bool _pressed = false;
+
+  bool get _disabled => widget.isDisabled || widget.onPressed == null || widget.isLoading;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final Size minSize = Size(fullWidth ? double.infinity : 0, 52);
+    final motion = context.motion;
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+
+    final minSize = Size(widget.fullWidth ? double.infinity : 0, 54);
+    final radius = BorderRadius.circular(AppRadii.lg);
+
+    final shadowOffsetY = _pressed ? 2.0 : 6.0;
+    final translateY = _pressed ? 2.0 : 0.0;
+
+    final gradient = _disabled ? null : _gradient();
+    final bgColor = _disabled ? surfaces.canvasSubtle : _solidColor();
+    final borderColor = _disabled ? surfaces.outline : _borderColor();
 
     return SizedBox(
-      width: fullWidth ? double.infinity : null,
-      child: DecoratedBox(
+      width: widget.fullWidth ? double.infinity : null,
+      child: AnimatedContainer(
+        duration: motion.fast,
+        curve: motion.standard,
+        transform: Matrix4.translationValues(0, translateY, 0),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadii.lg),
-          gradient: _disabled ? null : _gradient(),
-          color: _disabled ? AppColors.gamificationLight : _solidColor(),
-          boxShadow: _disabled ? [] : AppShadows.buttonAccent,
+          borderRadius: radius,
+          gradient: gradient,
+          color: gradient == null ? bgColor : null,
+          border: Border.all(color: borderColor, width: 1.6),
+          boxShadow: _disabled
+              ? const []
+              : [
+                  BoxShadow(
+                    color: surfaces.shadow,
+                    blurRadius: 0,
+                    offset: Offset(0, shadowOffsetY),
+                  ),
+                ],
         ),
-        child: TextButton(
-          style: TextButton.styleFrom(
-            minimumSize: minSize,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.lg),
-              side: BorderSide(
-                color: _disabled
-                    ? AppColors.progressTrack
-                    : _borderColor(),
-                width: 1.4,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _disabled
+                ? null
+                : () {
+                    if (widget.haptic) {
+                      HapticFeedback.selectionClick();
+                    }
+                    widget.onPressed?.call();
+                  },
+            onHighlightChanged: _disabled ? null : _setPressed,
+            borderRadius: radius,
+            overlayColor: WidgetStatePropertyAll(
+              scheme.onPrimary.withValues(alpha: 0.10),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minSize.height),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xl,
+                  vertical: AppSpacing.lg,
+                ),
+                child: Center(
+                  child: widget.isLoading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          widget.label,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: _disabled ? scheme.onSurface.withValues(alpha: 0.55) : scheme.onPrimary,
+                                letterSpacing: 0.2,
+                              ),
+                        ),
+                ),
               ),
             ),
           ),
-          onPressed: _disabled ? null : onPressed,
-          child: isLoading
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
-                  ),
-                )
-              : Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: _disabled ? AppColors.textMuted : AppColors.white,
-                  ),
-                ),
         ),
       ),
     );
   }
 
   LinearGradient? _gradient() {
-    if (variant != PrimaryButtonVariant.primary) {
-      return null;
-    }
+    if (widget.variant != PrimaryButtonVariant.primary) return null;
     return AppColors.primaryGradient;
   }
 
-  Color? _solidColor() {
-    switch (variant) {
+  Color _solidColor() {
+    switch (widget.variant) {
       case PrimaryButtonVariant.primary:
-        return null;
+        return AppColors.accentPrimary;
       case PrimaryButtonVariant.success:
         return AppColors.success;
       case PrimaryButtonVariant.warning:
@@ -99,9 +151,9 @@ class PrimaryButton extends StatelessWidget {
   }
 
   Color _borderColor() {
-    switch (variant) {
+    switch (widget.variant) {
       case PrimaryButtonVariant.primary:
-        return AppColors.black;
+        return AppColors.textNavy;
       case PrimaryButtonVariant.success:
         return AppColors.accentSuccess;
       case PrimaryButtonVariant.warning:
@@ -111,3 +163,4 @@ class PrimaryButton extends StatelessWidget {
     }
   }
 }
+

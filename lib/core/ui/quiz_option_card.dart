@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 enum QuizOptionState {
   normal,
@@ -13,94 +14,131 @@ enum QuizOptionState {
   disabled,
 }
 
-class QuizOptionCard extends StatelessWidget {
+class QuizOptionCard extends StatefulWidget {
   const QuizOptionCard({
     super.key,
     required this.label,
     required this.state,
     this.onTap,
     this.trailing,
+    this.haptic = true,
   });
 
   final String label;
   final QuizOptionState state;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final bool haptic;
+
+  @override
+  State<QuizOptionCard> createState() => _QuizOptionCardState();
+}
+
+class _QuizOptionCardState extends State<QuizOptionCard> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final Color background = _backgroundColor();
-    final Color border = _borderColor();
-    final Color textColor = _textColor();
+    final motion = context.motion;
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: state == QuizOptionState.disabled ? null : onTap,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(color: border, width: 1.4),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: AppTextStyles.body.copyWith(color: textColor),
-              ),
+    final enabled = widget.state != QuizOptionState.disabled && widget.onTap != null;
+    final background = _backgroundColor(surfaces, scheme);
+    final border = _borderColor(surfaces, scheme);
+    final textColor = _textColor(scheme);
+
+    return AnimatedContainer(
+      duration: motion.fast,
+      curve: motion.standard,
+      transform: Matrix4.translationValues(0, _pressed ? 1.0 : 0.0, 0),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: !enabled
+              ? null
+              : () {
+                  if (widget.haptic) HapticFeedback.selectionClick();
+                  widget.onTap?.call();
+                },
+          onHighlightChanged: enabled ? _setPressed : null,
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          overlayColor: WidgetStatePropertyAll(scheme.primary.withValues(alpha: 0.08)),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              border: Border.all(color: border, width: 1.6),
             ),
-            if (trailing != null) ...[
-              const SizedBox(width: AppSpacing.sm),
-              trailing!,
-            ],
-          ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: textColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                if (widget.trailing != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  widget.trailing!,
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Color _backgroundColor() {
-    switch (state) {
+  Color _backgroundColor(AppSurfaces surfaces, ColorScheme scheme) {
+    switch (widget.state) {
       case QuizOptionState.normal:
-        return AppColors.white;
+        return surfaces.card;
       case QuizOptionState.selected:
-        return AppColors.success.withValues(alpha: 0.35);
+        return scheme.primary.withValues(alpha: 0.16);
       case QuizOptionState.correct:
-        return AppColors.success.withValues(alpha: 0.55);
+        return AppColors.success.withValues(alpha: 0.18);
       case QuizOptionState.wrong:
-        return AppColors.danger.withValues(alpha: 0.45);
+        return AppColors.danger.withValues(alpha: 0.16);
       case QuizOptionState.disabled:
-        return AppColors.gamificationLight;
+        return surfaces.canvasSubtle;
     }
   }
 
-  Color _borderColor() {
-    switch (state) {
+  Color _borderColor(AppSurfaces surfaces, ColorScheme scheme) {
+    switch (widget.state) {
       case QuizOptionState.normal:
-        return AppColors.black;
+        return surfaces.outlineStrong.withValues(alpha: 0.24);
       case QuizOptionState.selected:
-        return AppColors.success;
+        return scheme.primary;
       case QuizOptionState.correct:
         return AppColors.success;
       case QuizOptionState.wrong:
         return AppColors.danger;
       case QuizOptionState.disabled:
-        return AppColors.progressTrack;
+        return surfaces.outline;
     }
   }
 
-  Color _textColor() {
-    switch (state) {
+  Color _textColor(ColorScheme scheme) {
+    switch (widget.state) {
       case QuizOptionState.disabled:
-        return AppColors.textMuted;
+        return scheme.onSurface.withValues(alpha: 0.45);
       case QuizOptionState.wrong:
-        return AppColors.black;
       case QuizOptionState.correct:
       case QuizOptionState.selected:
       case QuizOptionState.normal:
-        return AppColors.textNavy;
+        return scheme.onSurface;
     }
   }
 }
+

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 import 'app_text_button.dart';
 
 class PinInput extends StatelessWidget {
@@ -22,6 +21,9 @@ class PinInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -49,18 +51,18 @@ class PinInput extends StatelessWidget {
                 decoration: InputDecoration(
                   counterText: '',
                   filled: true,
-                  fillColor: AppColors.white,
+                  fillColor: surfaces.card,
                   contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadii.md),
-                    borderSide: const BorderSide(color: AppColors.progressTrack),
+                    borderSide: BorderSide(color: surfaces.outlineStrong.withValues(alpha: 0.16), width: 1.2),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadii.md),
-                    borderSide: const BorderSide(color: AppColors.textNavy, width: 1.4),
+                    borderSide: BorderSide(color: scheme.primary, width: 1.8),
                   ),
                 ),
-                style: AppTextStyles.title,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
           ),

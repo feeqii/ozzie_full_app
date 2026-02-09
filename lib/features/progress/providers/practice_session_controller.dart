@@ -63,6 +63,7 @@ class PracticeSessionController extends StateNotifier<PracticeSessionState> {
     _starting = true;
     try {
       final sessionId = await _repo.startSession(childId: activeChildId);
+      if (!mounted) return;
       state = state.copyWith(
         practiceDepth: state.practiceDepth,
         activeChildId: activeChildId,
@@ -125,6 +126,7 @@ class PracticeSessionController extends StateNotifier<PracticeSessionState> {
     _starting = true;
     try {
       final sessionId = await _repo.startSession(childId: childId);
+      if (!mounted) return;
       state = state.copyWith(
         practiceDepth: state.practiceDepth,
         activeChildId: childId,
@@ -156,6 +158,8 @@ class PracticeSessionController extends StateNotifier<PracticeSessionState> {
       _ending = false;
     }
 
+    if (!mounted) return;
+
     // Clear session id so a new one can start on resume / next enter.
     state = PracticeSessionState(
       practiceDepth: state.practiceDepth,
@@ -163,6 +167,6 @@ class PracticeSessionController extends StateNotifier<PracticeSessionState> {
       activeSessionId: null,
     );
 
-    refreshChildProgress(_ref, childId);
+    refreshChildProgress(_ref.invalidate, childId);
   }
 }

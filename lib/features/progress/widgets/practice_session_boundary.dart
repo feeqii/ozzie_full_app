@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../child/models/child_profile.dart';
 import '../../child/providers/child_providers.dart';
+import '../providers/practice_session_controller.dart';
 import '../providers/practice_session_providers.dart';
 
 class PracticeSessionBoundary extends ConsumerStatefulWidget {
@@ -18,19 +20,32 @@ class PracticeSessionBoundary extends ConsumerStatefulWidget {
 
 class _PracticeSessionBoundaryState extends ConsumerState<PracticeSessionBoundary> {
   bool _entered = false;
+  ProviderSubscription<ChildProfile?>? _childSub;
+  late final PracticeSessionController _controller;
 
   @override
   void initState() {
     super.initState();
 
-    _maybeEnter(ref.read(selectedChildProvider)?.id);
+    _controller = ref.read(practiceSessionControllerProvider.notifier);
 
-    ref.listen(selectedChildProvider, (previous, next) {
-      if (_entered) {
-        return;
-      }
-      _maybeEnter(next?.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _maybeEnter(ref.read(selectedChildProvider)?.id);
     });
+
+    _childSub = ref.listenManual<ChildProfile?>(
+      selectedChildProvider,
+      (previous, next) {
+        if (_entered) {
+          return;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _maybeEnter(next?.id);
+        });
+      },
+    );
   }
 
   void _maybeEnter(String? childId) {
@@ -41,13 +56,14 @@ class _PracticeSessionBoundaryState extends ConsumerState<PracticeSessionBoundar
       return;
     }
     _entered = true;
-    ref.read(practiceSessionControllerProvider.notifier).enterPractice(childId: childId);
+    _controller.enterPractice(childId: childId);
   }
 
   @override
   void dispose() {
+    _childSub?.close();
     if (_entered) {
-      ref.read(practiceSessionControllerProvider.notifier).leavePractice();
+      _controller.leavePractice();
     }
     super.dispose();
   }
@@ -57,4 +73,3 @@ class _PracticeSessionBoundaryState extends ConsumerState<PracticeSessionBoundar
     return widget.child;
   }
 }
-

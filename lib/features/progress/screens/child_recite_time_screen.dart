@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/empty_state.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/stat_tile.dart';
@@ -42,11 +42,14 @@ class ChildReciteTimeScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Recite time'),
+      background: const AtlasBackground(seed: 45),
       body: sessionsAsync.when(
         data: (summary) {
           final recentSessions = summary.entries.take(5).toList();
           return LayoutBuilder(
             builder: (context, constraints) {
+              final scheme = Theme.of(context).colorScheme;
+
               return SingleChildScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
@@ -55,7 +58,7 @@ class ChildReciteTimeScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Recitation time this week', style: AppTextStyles.title),
+                        Text('Recitation time this week', style: Theme.of(context).textTheme.displayLarge),
                         const SizedBox(height: AppSpacing.lg),
                         StatTile(
                           title: 'Total time',
@@ -64,21 +67,27 @@ class ChildReciteTimeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         AppCard(
+                          variant: AppCardVariant.soft,
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Sessions', style: AppTextStyles.caption),
+                              Text('Sessions', style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: AppSpacing.xs),
-                              Text('${summary.sessionCount} sessions', style: AppTextStyles.title),
+                              Text('${summary.sessionCount} sessions', style: Theme.of(context).textTheme.headlineSmall),
                             ],
                           ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
-                        Text('Recent sessions', style: AppTextStyles.title),
+                        Text('Recent sessions', style: Theme.of(context).textTheme.headlineSmall),
                         const SizedBox(height: AppSpacing.sm),
                         if (recentSessions.isEmpty)
-                          Text('No sessions logged yet.', style: AppTextStyles.body)
+                          Text(
+                            'No sessions logged yet.',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurface.withValues(alpha: 0.78),
+                                ),
+                          )
                         else
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -94,12 +103,18 @@ class ChildReciteTimeScreen extends ConsumerWidget {
                                     final dateLabel = MaterialLocalizations.of(context)
                                         .formatShortDate(session.startedAt);
                                     return AppCard(
+                                      variant: AppCardVariant.soft,
                                       padding: const EdgeInsets.all(AppSpacing.md),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(dateLabel, style: AppTextStyles.body),
-                                          Text(durationLabel, style: AppTextStyles.title),
+                                          Text(
+                                            dateLabel,
+                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                  color: scheme.onSurface.withValues(alpha: 0.78),
+                                                ),
+                                          ),
+                                          Text(durationLabel, style: Theme.of(context).textTheme.headlineSmall),
                                         ],
                                       ),
                                     );
@@ -128,9 +143,9 @@ class ChildReciteTimeScreen extends ConsumerWidget {
         error: (error, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Unable to load recitation time', style: AppTextStyles.title),
+            Text('Unable to load recitation time', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
-            Text('Please try again.', style: AppTextStyles.body),
+            Text('Please try again.', style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),

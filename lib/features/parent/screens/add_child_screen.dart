@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_extensions.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/app_snackbar.dart';
 import '../../../core/ui/app_text_field.dart';
 import '../../../core/ui/primary_button.dart';
@@ -111,74 +111,86 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
+        final surfaces = context.surfaces;
+        final scheme = Theme.of(context).colorScheme;
+
         return SafeArea(
           child: SizedBox(
             height: 320,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.sm,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Select year',
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textNavy,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() => _selectedYear = tempYear);
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(
-                          'Done',
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.accentPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: surfaces.sheet.withValues(alpha: 0.98),
+                  border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.14), width: 1.4),
                 ),
-                const Divider(height: 1),
-                Expanded(
-                  child: CupertinoPicker(
-                    scrollController: FixedExtentScrollController(
-                      initialItem: initialIndex,
-                    ),
-                    itemExtent: 40,
-                    onSelectedItemChanged: (index) {
-                      tempYear = years[index];
-                    },
-                    children: years
-                        .map(
-                          (year) => Center(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.sm,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Select year',
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.25,
+                                ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _selectedYear = tempYear);
+                              Navigator.of(context).pop();
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: scheme.primary,
+                            ),
                             child: Text(
-                              year.toString(),
-                              style: AppTextStyles.body.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textNavy,
-                              ),
+                              'Done',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
                             ),
                           ),
-                        )
-                        .toList(),
-                  ),
+                        ],
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: surfaces.outlineStrong.withValues(alpha: 0.12),
+                    ),
+                    Expanded(
+                      child: CupertinoPicker(
+                        scrollController: FixedExtentScrollController(
+                          initialItem: initialIndex,
+                        ),
+                        itemExtent: 40,
+                        onSelectedItemChanged: (index) {
+                          tempYear = years[index];
+                        },
+                        children: years
+                            .map(
+                              (year) => Center(
+                                child: Text(
+                                  year.toString(),
+                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -190,8 +202,12 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       appBar: const AppAppBar(title: 'Add Child'),
+      background: const AtlasBackground(seed: 79, intensity: 0.7, showGrid: false),
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final scheme = Theme.of(context).colorScheme;
+          final surfaces = context.surfaces;
+
           return SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: ConstrainedBox(
@@ -200,9 +216,14 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Who will recite?', style: AppTextStyles.title),
+                    Text('Who will recite?', style: Theme.of(context).textTheme.displayLarge),
                     const SizedBox(height: AppSpacing.sm),
-                    Text('Please add your child details.', style: AppTextStyles.body),
+                    Text(
+                      'Please add your child details.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.78),
+                          ),
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     AppTextField(
                       label: 'Child name',
@@ -211,7 +232,7 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
                       errorText: _errorText,
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    Text('Child year of birth', style: AppTextStyles.caption),
+                    Text('Child year of birth', style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: AppSpacing.sm),
                     InkWell(
                       onTap: _isLoading ? null : _showYearPicker,
@@ -222,11 +243,11 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
                           vertical: AppSpacing.lg,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.white,
+                          color: surfaces.card,
                           borderRadius: BorderRadius.circular(AppRadii.md),
                           border: Border.all(
-                            color: AppColors.progressTrack,
-                            width: 1.2,
+                            color: surfaces.outlineStrong.withValues(alpha: 0.16),
+                            width: 1.4,
                           ),
                         ),
                         child: Row(
@@ -234,24 +255,24 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
                             Expanded(
                               child: Text(
                                 _selectedYear?.toString() ?? 'Select year',
-                                style: AppTextStyles.body.copyWith(
-                                  color: _selectedYear == null
-                                      ? AppColors.textMuted
-                                      : AppColors.textNavy,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: _selectedYear == null
+                                          ? scheme.onSurface.withValues(alpha: 0.55)
+                                          : scheme.onSurface,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.keyboard_arrow_down,
-                              color: AppColors.textMuted,
+                              color: scheme.onSurface.withValues(alpha: 0.55),
                             ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    Text('Child gender', style: AppTextStyles.caption),
+                    Text('Child gender', style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: AppSpacing.sm),
                     Row(
                       children: [
@@ -302,9 +323,11 @@ class _GenderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isSelected ? AppColors.textNavy : AppColors.white;
-    final borderColor = isSelected ? AppColors.textNavy : AppColors.progressTrack;
-    final textColor = isSelected ? AppColors.white : AppColors.textNavy;
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
+    final backgroundColor = isSelected ? scheme.primary : surfaces.card;
+    final borderColor = isSelected ? scheme.primary : surfaces.outlineStrong.withValues(alpha: 0.16);
+    final textColor = isSelected ? scheme.onPrimary : scheme.onSurface;
 
     return InkWell(
       onTap: onTap,
@@ -315,17 +338,26 @@ class _GenderButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: borderColor,
-            width: 1.2,
+            width: 1.4,
           ),
           color: backgroundColor,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: surfaces.shadow,
+                    blurRadius: 0,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         alignment: Alignment.center,
         child: Text(
           label,
-          style: AppTextStyles.body.copyWith(
-            fontWeight: FontWeight.w600,
-            color: textColor,
-          ),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: textColor,
+              ),
         ),
       ),
     );

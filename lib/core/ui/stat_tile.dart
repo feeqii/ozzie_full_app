@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 enum StatTileVariant { streak, time, score }
 
@@ -23,15 +22,17 @@ class StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadii.md),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: surfaces.card,
           borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(color: AppColors.progressTrack, width: 1.2),
+          border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.18), width: 1.4),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -39,12 +40,12 @@ class StatTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title.toUpperCase(), style: AppTextStyles.caption),
+                Text(title.toUpperCase(), style: Theme.of(context).textTheme.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
-                Text(value, style: AppTextStyles.title),
+                Text(value, style: Theme.of(context).textTheme.headlineSmall),
               ],
             ),
-            Icon(_iconForVariant(), color: AppColors.textNavy, size: 22),
+            Icon(_iconForVariant(), color: scheme.onSurface, size: 22),
           ],
         ),
       ),

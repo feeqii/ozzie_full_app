@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 import 'illustration_frame.dart';
 import 'secondary_button.dart';
 
@@ -22,18 +20,37 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       children: [
-        const IllustrationFrame(
-          child: Icon(Icons.image_outlined, color: AppColors.progressTrack),
+        IllustrationFrame(
+          variant: IllustrationFrameVariant.standard,
+          child: Icon(
+            Icons.image_outlined,
+            color: scheme.onSurface.withValues(alpha: 0.55),
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text(title, style: AppTextStyles.title, textAlign: TextAlign.center),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: AppSpacing.sm),
-        Text(message, style: AppTextStyles.body, textAlign: TextAlign.center),
+        Text(
+          message,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurface.withValues(alpha: 0.78),
+              ),
+          textAlign: TextAlign.center,
+        ),
         if (buttonLabel != null && onPressed != null) ...[
           const SizedBox(height: AppSpacing.lg),
-          SecondaryButton(label: buttonLabel!, onPressed: onPressed),
+          SecondaryButton(
+            label: buttonLabel!,
+            onPressed: onPressed,
+          ),
         ],
       ],
     );

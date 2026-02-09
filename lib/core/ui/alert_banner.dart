@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 
 enum AlertBannerVariant { info, warning, danger, success }
 
@@ -20,12 +19,13 @@ class AlertBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = _color();
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: color, width: 1.2),
+        border: Border.all(color: color.withValues(alpha: 0.75), width: 1.2),
       ),
       child: Row(
         children: [
@@ -34,7 +34,10 @@ class AlertBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: AppTextStyles.body.copyWith(color: AppColors.textNavy),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ),
         ],

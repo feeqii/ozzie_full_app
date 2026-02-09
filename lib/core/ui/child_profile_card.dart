@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/app_extensions.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text_styles.dart';
 import 'avatar.dart';
 
 class ChildProfileCard extends StatelessWidget {
@@ -22,15 +21,17 @@ class ChildProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaces = context.surfaces;
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadii.md),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: surfaces.card,
           borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(color: AppColors.progressTrack, width: 1.2),
+          border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.16), width: 1.2),
         ),
         child: Row(
           children: [
@@ -40,13 +41,18 @@ class ChildProfileCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: AppTextStyles.title),
+                  Text(name, style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(subtitle, style: AppTextStyles.caption),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right),
+            Icon(Icons.chevron_right, color: scheme.onSurface.withValues(alpha: 0.8)),
           ],
         ),
       ),
