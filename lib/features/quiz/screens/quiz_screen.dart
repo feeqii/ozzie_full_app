@@ -265,7 +265,10 @@ class QuizScreen extends ConsumerWidget {
                   child: ListView(
                     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           LabelChip(
                             label: 'Surah ${surah.id}',
@@ -273,7 +276,6 @@ class QuizScreen extends ConsumerWidget {
                             borderColor: surfaces.outlineStrong.withValues(alpha: 0.18),
                             foregroundColor: scheme.onSurface,
                           ),
-                          const SizedBox(width: AppSpacing.sm),
                           LabelChip(
                             label: 'Q $qIndex/$total',
                             background: scheme.primary.withValues(alpha: 0.14),

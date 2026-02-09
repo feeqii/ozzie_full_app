@@ -78,6 +78,7 @@ class PracticeSessionController extends StateNotifier<PracticeSessionState> {
   }
 
   Future<void> leavePractice() async {
+    if (!mounted) return;
     if (state.practiceDepth <= 0) {
       return;
     }

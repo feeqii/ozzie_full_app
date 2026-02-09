@@ -91,7 +91,9 @@ class _GalaxyMapScreenState extends ConsumerState<GalaxyMapScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
                             children: [
                               LabelChip(
                                 label: '${state.slotsRemaining} slots left',
@@ -99,7 +101,6 @@ class _GalaxyMapScreenState extends ConsumerState<GalaxyMapScreen> {
                                 borderColor: Colors.white.withValues(alpha: 0.18),
                                 foregroundColor: Colors.white,
                               ),
-                              const SizedBox(width: AppSpacing.sm),
                               LabelChip(
                                 label: 'Swipe to explore',
                                 background: Colors.white.withValues(alpha: 0.12),

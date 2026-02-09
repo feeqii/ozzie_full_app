@@ -63,7 +63,9 @@ class _PracticeSessionBoundaryState extends ConsumerState<PracticeSessionBoundar
   void dispose() {
     _childSub?.close();
     if (_entered) {
-      _controller.leavePractice();
+      // Riverpod forbids provider writes inside widget lifecycle methods.
+      // Defer to next microtask so we don't mutate provider state during dispose.
+      Future.microtask(() => _controller.leavePractice());
     }
     super.dispose();
   }

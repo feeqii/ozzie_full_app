@@ -128,8 +128,10 @@ Widget _wrapApp(
   Widget child, {
   required List<Override> overrides,
   double? textScale,
+  Key? scopeKey,
 }) {
   return ProviderScope(
+    key: scopeKey,
     overrides: overrides,
     child: MaterialApp(
       theme: AppTheme.light(),
@@ -149,6 +151,34 @@ Widget _wrapApp(
       home: child,
     ),
   );
+}
+
+void _setTestViewSize(WidgetTester tester, Size size) {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = size;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
+
+Future<void> _pumpAndExpectNoException(
+  WidgetTester tester,
+  Widget child, {
+  required List<Override> overrides,
+  double? textScale,
+  String? reason,
+}) async {
+  await tester.pumpWidget(
+    _wrapApp(
+      child,
+      overrides: overrides,
+      textScale: textScale,
+      scopeKey: UniqueKey(),
+    ),
+  );
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull, reason: reason);
 }
 
 void main() {
@@ -325,6 +355,47 @@ void main() {
     ],
   );
 
+  final journeySteps = [
+    JourneyStep(
+      level: const JourneyLevel(
+        id: 'l1',
+        surahId: 1,
+        type: JourneyLevelType.surahIntro,
+        orderIndex: 1,
+      ),
+      progress: const JourneyProgress(
+        levelId: 'l1',
+        status: JourneyLevelStatus.unlocked,
+      ),
+    ),
+    JourneyStep(
+      level: const JourneyLevel(
+        id: 'l2',
+        surahId: 1,
+        type: JourneyLevelType.verseLesson,
+        orderIndex: 2,
+        ayahId: 1,
+      ),
+      progress: const JourneyProgress(
+        levelId: 'l2',
+        status: JourneyLevelStatus.inProgress,
+      ),
+    ),
+    JourneyStep(
+      level: const JourneyLevel(
+        id: 'l3',
+        surahId: 1,
+        type: JourneyLevelType.checkpoint,
+        orderIndex: 3,
+        quizType: 'mini_1',
+      ),
+      progress: const JourneyProgress(
+        levelId: 'l3',
+        status: JourneyLevelStatus.locked,
+      ),
+    ),
+  ];
+
   testWidgets('ChildHomeScreen renders mission control with resume + stamps', (tester) async {
     await tester.pumpWidget(
       _wrapApp(
@@ -417,47 +488,6 @@ void main() {
   });
 
   testWidgets('SurahJourneyScreen renders constellation path and nodes', (tester) async {
-    final steps = [
-      JourneyStep(
-        level: const JourneyLevel(
-          id: 'l1',
-          surahId: 1,
-          type: JourneyLevelType.surahIntro,
-          orderIndex: 1,
-        ),
-        progress: const JourneyProgress(
-          levelId: 'l1',
-          status: JourneyLevelStatus.unlocked,
-        ),
-      ),
-      JourneyStep(
-        level: const JourneyLevel(
-          id: 'l2',
-          surahId: 1,
-          type: JourneyLevelType.verseLesson,
-          orderIndex: 2,
-          ayahId: 1,
-        ),
-        progress: const JourneyProgress(
-          levelId: 'l2',
-          status: JourneyLevelStatus.inProgress,
-        ),
-      ),
-      JourneyStep(
-        level: const JourneyLevel(
-          id: 'l3',
-          surahId: 1,
-          type: JourneyLevelType.checkpoint,
-          orderIndex: 3,
-          quizType: 'mini_1',
-        ),
-        progress: const JourneyProgress(
-          levelId: 'l3',
-          status: JourneyLevelStatus.locked,
-        ),
-      ),
-    ];
-
     await tester.pumpWidget(
       _wrapApp(
         const SurahJourneyScreen(surahId: 1),
@@ -465,7 +495,7 @@ void main() {
           selectedChildProvider.overrideWithValue(child),
           mapRepositoryProvider.overrideWithValue(_FakeMapRepository()),
           mapStateProvider.overrideWith((ref) async => mapState),
-          surahJourneyStepsProvider(1).overrideWith((ref) async => steps),
+          surahJourneyStepsProvider(1).overrideWith((ref) async => journeySteps),
         ],
       ),
     );
@@ -586,5 +616,193 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Responsive: key screens render on small phone', (tester) async {
+    _setTestViewSize(tester, const Size(360, 640));
+
+    final rewardArgs = RewardScreenArgs(
+      event: const RewardEvent(
+        type: RewardType.hasanat,
+        title: 'Hasanat earned',
+        message: 'You earned rewards for today\'s practice.',
+        score: 100,
+      ),
+      primaryLabel: 'Continue',
+      primaryRoute: '/child/home',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const ChildHomeScreen(),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapStateProvider.overrideWith((ref) async => mapState),
+        childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+      ],
+      reason: 'ChildHomeScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const GalaxyMapScreen(),
+      overrides: [
+        mapStateProvider.overrideWith((ref) async => mapState),
+      ],
+      reason: 'GalaxyMapScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const PlanetMapScreen(galaxyId: 1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapRepositoryProvider.overrideWithValue(_FakeMapRepository()),
+        mapStateProvider.overrideWith((ref) async => mapState),
+      ],
+      reason: 'PlanetMapScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const SurahJourneyScreen(surahId: 1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapRepositoryProvider.overrideWithValue(_FakeMapRepository()),
+        mapStateProvider.overrideWith((ref) async => mapState),
+        surahJourneyStepsProvider(1).overrideWith((ref) async => journeySteps),
+      ],
+      reason: 'SurahJourneyScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const AyahLearnScreen(surahId: 1, ayahId: 1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        surahContentProvider(1).overrideWith((ref) async => surahContent),
+      ],
+      reason: 'AyahLearnScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const RecitationPracticeScreen(surahId: 1, ayahId: 1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        recitationRepositoryProvider.overrideWithValue(_FakeRecitationRepository()),
+        surahContentProvider(1).overrideWith((ref) async => surahContent),
+      ],
+      reason: 'RecitationPracticeScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const QuizScreen(surahId: 1, quizType: QuizType.mini1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
+        quizRecitationRepositoryProvider.overrideWithValue(_FakeQuizRecitationRepository()),
+        surahContentProvider(1).overrideWith((ref) async => surahContent),
+      ],
+      reason: 'QuizScreen (small phone)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      RewardScreen(args: rewardArgs),
+      overrides: const [],
+      reason: 'RewardScreen (small phone)',
+    );
+  });
+
+  testWidgets('Responsive: key screens render on tablet', (tester) async {
+    _setTestViewSize(tester, const Size(1024, 1366));
+
+    await _pumpAndExpectNoException(
+      tester,
+      const ChildHomeScreen(),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapStateProvider.overrideWith((ref) async => mapState),
+        childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+      ],
+      reason: 'ChildHomeScreen (tablet)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const GalaxyMapScreen(),
+      overrides: [
+        mapStateProvider.overrideWith((ref) async => mapState),
+      ],
+      reason: 'GalaxyMapScreen (tablet)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const PlanetMapScreen(galaxyId: 1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapRepositoryProvider.overrideWithValue(_FakeMapRepository()),
+        mapStateProvider.overrideWith((ref) async => mapState),
+      ],
+      reason: 'PlanetMapScreen (tablet)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const SurahJourneyScreen(surahId: 1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapRepositoryProvider.overrideWithValue(_FakeMapRepository()),
+        mapStateProvider.overrideWith((ref) async => mapState),
+        surahJourneyStepsProvider(1).overrideWith((ref) async => journeySteps),
+      ],
+      reason: 'SurahJourneyScreen (tablet)',
+    );
+  });
+
+  testWidgets('Responsive: large text on small phone (core screens)', (tester) async {
+    _setTestViewSize(tester, const Size(360, 640));
+
+    await _pumpAndExpectNoException(
+      tester,
+      const ChildHomeScreen(),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        mapStateProvider.overrideWith((ref) async => mapState),
+        childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+      ],
+      textScale: 2.0,
+      reason: 'ChildHomeScreen (small phone, large text)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const GalaxyMapScreen(),
+      overrides: [
+        mapStateProvider.overrideWith((ref) async => mapState),
+      ],
+      textScale: 2.0,
+      reason: 'GalaxyMapScreen (small phone, large text)',
+    );
+
+    await _pumpAndExpectNoException(
+      tester,
+      const QuizScreen(surahId: 1, quizType: QuizType.mini1),
+      overrides: [
+        selectedChildProvider.overrideWithValue(child),
+        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
+        quizRecitationRepositoryProvider.overrideWithValue(_FakeQuizRecitationRepository()),
+        surahContentProvider(1).overrideWith((ref) async => surahContent),
+      ],
+      textScale: 2.0,
+      reason: 'QuizScreen (small phone, large text)',
+    );
   });
 }
