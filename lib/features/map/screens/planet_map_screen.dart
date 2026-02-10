@@ -38,14 +38,7 @@ class PlanetMapScreen extends ConsumerWidget {
         children: [
           const CosmicBackground(parallax: 0),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.xl,
-              ),
-              child: mapAsync.when(
+            child: mapAsync.when(
                 data: (state) {
                   if (state == null) {
                     return Center(
@@ -78,25 +71,37 @@ class PlanetMapScreen extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        galaxyNode.nameEn.isNotEmpty ? '${galaxyNode.nameEn} Galaxy' : 'Galaxy',
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(color: Colors.white),
-                      ),
-                      if ((galaxyNode.nameAr ?? '').isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          galaxyNode.nameAr!,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.md,
                         ),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        state.slotsRemaining == 0
-                            ? 'No slots left. Complete an active surah to unlock more.'
-                            : '${state.slotsRemaining} active surah slots available',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              galaxyNode.nameEn.isNotEmpty ? '${galaxyNode.nameEn} Galaxy' : 'Galaxy',
+                              style: Theme.of(context).textTheme.displayLarge?.copyWith(color: Colors.white),
+                            ),
+                            if ((galaxyNode.nameAr ?? '').isNotEmpty) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                galaxyNode.nameAr!,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                              ),
+                            ],
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              state.slotsRemaining == 0
+                                  ? 'No slots left. Complete an active surah to unlock more.'
+                                  : '${state.slotsRemaining} active surah slots available',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.lg),
                       Expanded(
                         child: _PlanetOrbit(
                           surahs: surahs,
@@ -141,7 +146,6 @@ class PlanetMapScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-            ),
           ),
         ],
       ),
@@ -176,52 +180,156 @@ class _PlanetOrbit extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = constraints.biggest;
-        final w = size.width;
-        final h = size.height;
+        final w = constraints.maxWidth;
+        final viewportH = constraints.maxHeight;
 
-        final nodeSize = (w * 0.22).clamp(74.0, 96.0);
-        final top = nodeSize * 0.15;
-        final bottom = nodeSize * 0.15;
-        final usableH = (h - top - bottom).clamp(1, h);
+        // Big, thumb-first planets. We allow scroll so these can stay large.
+        final nodeSize = (w * 0.46).clamp(150.0, 176.0);
+        final labelWidth = math.min(w - AppSpacing.lg, nodeSize * 1.65);
+        final labelHeight = 54.0;
+
+        final gap = nodeSize + 88;
+        final contentH = math.max(
+          viewportH,
+          (surahs.length - 1) * gap + nodeSize + labelHeight + AppSpacing.xl,
+        );
+
+        // Bottom-up reading: easiest/first planet at the bottom.
+        final surahsDisplay = surahs.reversed.toList(growable: false);
 
         final cx = w / 2;
-        final amplitude = w * 0.32;
+        final side = AppSpacing.sm.toDouble();
+        final amplitude = math.max(0.0, (w - labelWidth - side * 2) / 2);
         final waves = 2.0;
 
         final points = <Offset>[];
-        for (var i = 0; i < surahs.length; i++) {
-          final t = surahs.length == 1 ? 0.5 : (i / (surahs.length - 1));
+        for (var i = 0; i < surahsDisplay.length; i++) {
+          final t = surahsDisplay.length == 1 ? 0.5 : (i / (surahsDisplay.length - 1));
           final x = cx + math.sin(t * math.pi * waves) * amplitude;
-          final y = top + t * usableH;
+          final y = AppSpacing.md + t * (contentH - nodeSize - labelHeight - AppSpacing.xl);
           points.add(Offset(x, y));
         }
 
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _OrbitPainter(
-                  points: points,
-                  glow: glow,
-                  fog: fog,
-                ),
-              ),
-            ),
-            for (var i = 0; i < surahs.length; i++)
-              Positioned(
-                left: points[i].dx - nodeSize / 2,
-                top: points[i].dy - nodeSize / 2,
-                width: nodeSize,
-                child: _PlanetNode(
-                  surah: surahs[i],
-                  size: nodeSize,
-                  onTap: () => onTap(surahs[i]),
-                ),
+        return _PlanetOrbitScroll(
+          contentHeight: contentH,
+          points: points,
+          glow: glow,
+          fog: fog,
+          nodes: [
+            for (var i = 0; i < surahsDisplay.length; i++)
+              _PlanetNodeSpec(
+                surah: surahsDisplay[i],
+                center: points[i],
               ),
           ],
+          nodeSize: nodeSize,
+          labelWidth: labelWidth,
+          labelHeight: labelHeight,
+          onTap: onTap,
         );
       },
+    );
+  }
+}
+
+class _PlanetNodeSpec {
+  const _PlanetNodeSpec({
+    required this.surah,
+    required this.center,
+  });
+
+  final SurahNode surah;
+  final Offset center;
+}
+
+class _PlanetOrbitScroll extends StatefulWidget {
+  const _PlanetOrbitScroll({
+    required this.contentHeight,
+    required this.points,
+    required this.glow,
+    required this.fog,
+    required this.nodes,
+    required this.nodeSize,
+    required this.labelWidth,
+    required this.labelHeight,
+    required this.onTap,
+  });
+
+  final double contentHeight;
+  final List<Offset> points;
+  final Color glow;
+  final Color fog;
+  final List<_PlanetNodeSpec> nodes;
+  final double nodeSize;
+  final double labelWidth;
+  final double labelHeight;
+  final _PlanetTap onTap;
+
+  @override
+  State<_PlanetOrbitScroll> createState() => _PlanetOrbitScrollState();
+}
+
+class _PlanetOrbitScrollState extends State<_PlanetOrbitScroll> {
+  late final ScrollController _controller;
+  bool _jumped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Always open the map near the "start" (bottom) so kids see the next action first.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _jumped) return;
+      if (!_controller.hasClients) return;
+      _jumped = true;
+      _controller.jumpTo(_controller.position.maxScrollExtent);
+    });
+
+    return Scrollbar(
+      controller: _controller,
+      child: SingleChildScrollView(
+        controller: _controller,
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        child: SizedBox(
+          height: widget.contentHeight,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _OrbitPainter(
+                    points: widget.points,
+                    glow: widget.glow,
+                    fog: widget.fog,
+                  ),
+                ),
+              ),
+              for (final node in widget.nodes)
+                Positioned(
+                  left: node.center.dx - widget.labelWidth / 2,
+                  top: node.center.dy - widget.nodeSize / 2,
+                  width: widget.labelWidth,
+                  child: _PlanetNode(
+                    surah: node.surah,
+                    size: widget.nodeSize,
+                    labelWidth: widget.labelWidth,
+                    labelHeight: widget.labelHeight,
+                    onTap: () => widget.onTap(node.surah),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -275,11 +383,15 @@ class _PlanetNode extends StatelessWidget {
   const _PlanetNode({
     required this.surah,
     required this.size,
+    required this.labelWidth,
+    required this.labelHeight,
     required this.onTap,
   });
 
   final SurahNode surah;
   final double size;
+  final double labelWidth;
+  final double labelHeight;
   final VoidCallback onTap;
 
   @override
@@ -357,7 +469,7 @@ class _PlanetNode extends StatelessWidget {
                     '${surah.orderIndex}',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: (size * 0.15).clamp(20.0, 28.0),
                           height: 1,
                         ),
                   ),
@@ -376,27 +488,36 @@ class _PlanetNode extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
+          SizedBox(
+            width: labelWidth,
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    height: 1.08,
+                    fontSize: (size * 0.11).clamp(16.0, 20.0),
+                  ),
+            ),
           ),
           const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.78),
-                  letterSpacing: 0.5,
-                ),
+          SizedBox(
+            width: labelWidth,
+            height: labelHeight,
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    letterSpacing: 0.5,
+                    height: 1.1,
+                  ),
+            ),
           ),
         ],
       ),
@@ -416,4 +537,3 @@ class _PlanetNode extends StatelessWidget {
     }
   }
 }
-
