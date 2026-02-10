@@ -268,55 +268,41 @@ class _JourneyPathMap extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
-        final gap = 160.0;
-        final nodeSize = (w * 0.22).clamp(78.0, 96.0);
-        final top = nodeSize * 0.7;
-        final bottom = nodeSize * 0.8;
+        // Big, thumb-first nodes. We allow scroll, so they can stay large.
+        final nodeSize = (w * 0.46).clamp(150.0, 176.0);
+        final gap = nodeSize + 98;
+        final labelWidth = math.min(w - AppSpacing.lg, nodeSize * 1.45);
+        final labelHeight = 56.0;
 
-        final height = top + (steps.length - 1) * gap + bottom;
+        // Bottom-up journey: early steps live near the bottom so the next action
+        // is immediately visible.
+        final top = nodeSize * 0.5;
+        final height = top + (steps.length - 1) * gap + nodeSize + labelHeight + AppSpacing.xl;
+
         final cx = w / 2;
-        final amplitude = w * 0.30;
+        final maxAmp = math.max(0.0, (w - labelWidth) / 2 - AppSpacing.sm);
+        final amplitude = math.min(w * 0.26, maxAmp);
         final waves = 2.0;
 
         final points = <Offset>[];
         for (var i = 0; i < steps.length; i++) {
           final t = steps.length == 1 ? 0.5 : (i / (steps.length - 1));
           final x = cx + math.sin(t * math.pi * waves) * amplitude;
-          final y = top + i * gap;
+          // Invert y so step 0 is near the bottom.
+          final y = top + (steps.length - 1 - i) * gap;
           points.add(Offset(x, y));
         }
 
         final unlockedUntil = _furthestUnlockedIndex(steps);
-
-        return SingleChildScrollView(
-          child: SizedBox(
-            height: math.max(constraints.maxHeight, height),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _JourneyPathPainter(
-                      points: points,
-                      unlockedUntil: unlockedUntil,
-                      glow: context.surfaces.mapGlow,
-                    ),
-                  ),
-                ),
-                for (var i = 0; i < steps.length; i++)
-                  Positioned(
-                    left: points[i].dx - nodeSize / 2,
-                    top: points[i].dy - nodeSize / 2,
-                    width: nodeSize,
-                    child: _JourneyNode(
-                      step: steps[i],
-                      index: i,
-                      size: nodeSize,
-                      onTap: () => onTap(steps[i]),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        return _JourneyScrollMap(
+          height: math.max(constraints.maxHeight, height),
+          nodeSize: nodeSize,
+          labelWidth: labelWidth,
+          labelHeight: labelHeight,
+          points: points,
+          steps: steps,
+          unlockedUntil: unlockedUntil,
+          onTap: onTap,
         );
       },
     );
@@ -330,6 +316,96 @@ class _JourneyPathMap extends StatelessWidget {
       }
     }
     return furthest;
+  }
+}
+
+class _JourneyScrollMap extends StatefulWidget {
+  const _JourneyScrollMap({
+    required this.height,
+    required this.nodeSize,
+    required this.labelWidth,
+    required this.labelHeight,
+    required this.points,
+    required this.steps,
+    required this.unlockedUntil,
+    required this.onTap,
+  });
+
+  final double height;
+  final double nodeSize;
+  final double labelWidth;
+  final double labelHeight;
+  final List<Offset> points;
+  final List<JourneyStep> steps;
+  final int unlockedUntil;
+  final Future<void> Function(JourneyStep step) onTap;
+
+  @override
+  State<_JourneyScrollMap> createState() => _JourneyScrollMapState();
+}
+
+class _JourneyScrollMapState extends State<_JourneyScrollMap> {
+  late final ScrollController _controller;
+  bool _jumped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Start at the bottom so the "begin/next" step is in thumb reach.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _jumped) return;
+      if (!_controller.hasClients) return;
+      _jumped = true;
+      _controller.jumpTo(_controller.position.maxScrollExtent);
+    });
+
+    return Scrollbar(
+      controller: _controller,
+      child: SingleChildScrollView(
+        controller: _controller,
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        child: SizedBox(
+          height: widget.height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _JourneyPathPainter(
+                    points: widget.points,
+                    unlockedUntil: widget.unlockedUntil,
+                    glow: context.surfaces.mapGlow,
+                  ),
+                ),
+              ),
+              for (var i = 0; i < widget.steps.length; i++)
+                Positioned(
+                  left: widget.points[i].dx - widget.labelWidth / 2,
+                  top: widget.points[i].dy - widget.nodeSize / 2,
+                  width: widget.labelWidth,
+                  child: _JourneyNode(
+                    step: widget.steps[i],
+                    size: widget.nodeSize,
+                    labelWidth: widget.labelWidth,
+                    labelHeight: widget.labelHeight,
+                    onTap: () => widget.onTap(widget.steps[i]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -398,14 +474,16 @@ class _JourneyPathPainter extends CustomPainter {
 class _JourneyNode extends StatelessWidget {
   const _JourneyNode({
     required this.step,
-    required this.index,
     required this.size,
+    required this.labelWidth,
+    required this.labelHeight,
     required this.onTap,
   });
 
   final JourneyStep step;
-  final int index;
   final double size;
+  final double labelWidth;
+  final double labelHeight;
   final VoidCallback onTap;
 
   @override
@@ -442,7 +520,7 @@ class _JourneyNode extends StatelessWidget {
                         boxShadow: [
                           BoxShadow(
                             color: glow.withValues(alpha: completed ? 0.35 : 0.22),
-                            blurRadius: 22,
+                            blurRadius: 26,
                             spreadRadius: 1,
                           ),
                         ],
@@ -460,7 +538,7 @@ class _JourneyNode extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Icon(icon, color: Colors.white, size: 26),
+                  Icon(icon, color: Colors.white, size: (size * 0.18).clamp(26.0, 34.0)),
                   if (locked)
                     const Positioned(
                       bottom: 10,
@@ -476,31 +554,42 @@ class _JourneyNode extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _GlassPanel(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    status,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          letterSpacing: 0.5,
-                        ),
-                  ),
-                ],
+          SizedBox(
+            width: labelWidth,
+            child: _GlassPanel(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    SizedBox(
+                      height: labelHeight - 30,
+                      child: Text(
+                        status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              letterSpacing: 0.5,
+                              height: 1.1,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -9,14 +9,12 @@ class CosmicBackground extends StatelessWidget {
     super.key,
     this.parallax = 0,
     this.seed = 7,
-    this.showGrid = true,
   });
 
   /// Horizontal parallax offset in logical pixels.
   final double parallax;
 
   final int seed;
-  final bool showGrid;
 
   @override
   Widget build(BuildContext context) {
@@ -39,17 +37,6 @@ class CosmicBackground extends StatelessWidget {
             ),
           ),
         ),
-        if (showGrid)
-          Positioned.fill(
-            child: Transform.translate(
-              offset: Offset(parallax * 0.35, 0),
-              child: CustomPaint(
-                painter: _AtlasGridPainter(
-                  tint: Colors.white.withValues(alpha: 0.05),
-                ),
-              ),
-            ),
-          ),
         // A soft, narrative glow. It gives depth without feeling "neon".
         Positioned.fill(
           child: DecoratedBox(
@@ -126,30 +113,5 @@ class _StarfieldPainter extends CustomPainter {
   }
 }
 
-class _AtlasGridPainter extends CustomPainter {
-  _AtlasGridPainter({required this.tint});
-
-  final Color tint;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = tint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    final gap = (size.shortestSide / 7).clamp(46.0, 96.0);
-
-    for (double x = -gap; x < size.width + gap; x += gap) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = -gap; y < size.height + gap; y += gap) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _AtlasGridPainter oldDelegate) {
-    return oldDelegate.tint != tint;
-  }
-}
+// Intentionally no "checker grid" layer: the cosmic map background should read
+// as space, not graph paper. The atlas vibe comes from stars + glow instead.
