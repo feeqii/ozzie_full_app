@@ -148,14 +148,6 @@ class _SoftGridPainter extends CustomPainter {
     for (double y = -gap; y < size.height + gap; y += gap) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
-
-    final diagPaint = Paint()
-      ..color = tint.withValues(alpha: (tint.a * 1.15).clamp(0.0, 1.0))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (double d = -size.height; d < size.width; d += gap * 1.9) {
-      canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), diagPaint);
-    }
   }
 
   @override

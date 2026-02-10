@@ -146,15 +146,6 @@ class _AtlasGridPainter extends CustomPainter {
     for (double y = -gap; y < size.height + gap; y += gap) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
-
-    // Subtle diagonal accents to feel "cartographic".
-    final diagPaint = Paint()
-      ..color = tint.withValues(alpha: 0.75)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (double d = -size.height; d < size.width; d += gap * 1.8) {
-      canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), diagPaint);
-    }
   }
 
   @override
@@ -162,4 +153,3 @@ class _AtlasGridPainter extends CustomPainter {
     return oldDelegate.tint != tint;
   }
 }
-
