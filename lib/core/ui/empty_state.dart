@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
+import 'atlas_illustrations.dart';
 import 'illustration_frame.dart';
 import 'secondary_button.dart';
 
@@ -9,27 +10,25 @@ class EmptyState extends StatelessWidget {
     super.key,
     required this.title,
     required this.message,
+    this.illustration,
     this.buttonLabel,
     this.onPressed,
   });
 
   final String title;
   final String message;
+  final Widget? illustration;
   final String? buttonLabel;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
     return Column(
       children: [
         IllustrationFrame(
           variant: IllustrationFrameVariant.standard,
-          child: Icon(
-            Icons.image_outlined,
-            color: scheme.onSurface.withValues(alpha: 0.55),
-          ),
+          child: illustration ?? const AtlasIllustration(kind: AtlasIllustrationKind.lesson),
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(

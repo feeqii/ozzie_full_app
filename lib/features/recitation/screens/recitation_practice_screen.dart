@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -10,6 +11,7 @@ import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/label_chip.dart';
 import '../../../core/ui/modal_sheet.dart';
@@ -76,12 +78,17 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
       }
 
       if (previous?.errorMessage != next.errorMessage && next.errorMessage != null && next.errorMessage!.isNotEmpty) {
+        HapticFeedback.lightImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Something went wrong',
             message: next.errorMessage!,
             variant: ModalSheetVariant.fail,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.retry),
+            ),
             primaryAction: PrimaryButton(
               label: 'Okay',
               onPressed: () => context.pop(),
@@ -98,26 +105,29 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
         final remaining = next.passesRemaining;
         final message = () {
           if (remaining == null) {
-            return passed ? 'Nice work. Let\'s do it again to master it.' : 'Not quite. Try again and listen carefully.';
+            return passed ? 'Nice! Let\'s do it again to master it.' : 'Almost. Try again and listen carefully.';
           }
           if (remaining <= 0) {
             return passed ? 'Ayah mastered. Great job.' : 'Try again to master it.';
           }
-          return passed ? '$remaining passes to go. Record again to master it.' : '$remaining passes to go. Try again.';
+          return passed ? '$remaining more to master it. Record again.' : '$remaining more to master it. Try again.';
         }();
 
+        if (passed) {
+          HapticFeedback.mediumImpact();
+        } else {
+          HapticFeedback.lightImpact();
+        }
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
-            title: passed ? 'Nice work' : 'Try again',
+            title: passed ? 'Great job' : 'Try again',
             message: message,
             variant: passed ? ModalSheetVariant.success : ModalSheetVariant.fail,
             illustration: IllustrationFrame(
               size: 150,
-              child: Icon(
-                passed ? Icons.verified_rounded : Icons.refresh_rounded,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurface,
+              child: AtlasIllustration(
+                kind: passed ? AtlasIllustrationKind.success : AtlasIllustrationKind.retry,
               ),
             ),
             primaryAction: PrimaryButton(
@@ -139,12 +149,17 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
         );
       }
       if (previous?.showMicSettingsPrompt != next.showMicSettingsPrompt && next.showMicSettingsPrompt) {
+        HapticFeedback.selectionClick();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Microphone access required',
             message: 'Enable the microphone in Settings to record your recitation.',
             variant: ModalSheetVariant.info,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.recite),
+            ),
             primaryAction: PrimaryButton(
               label: 'Open Settings',
               onPressed: () async {
@@ -162,6 +177,7 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
         notifier.clearMicPermissionPrompt();
       }
       if (previous?.rewardEvent != next.rewardEvent && next.rewardEvent != null) {
+        HapticFeedback.mediumImpact();
         final args = RewardScreenArgs(
           event: next.rewardEvent!,
           primaryLabel: 'Continue',
@@ -175,12 +191,17 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
       if (previous?.stage != next.stage && next.stage == RecitationStage.gateToQuiz) {
         final quizType = quizTypeFromGate(next.nextGate);
         final route = quizType == null ? '/child/surah/$surahId' : '/child/surah/$surahId/quiz/${quizType.apiValue}';
+        HapticFeedback.mediumImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Mini quiz unlocked',
-            message: 'Great job! A mini quiz is now ready.',
+            message: 'Great job. A quick quiz is ready.',
             variant: ModalSheetVariant.success,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.quiz),
+            ),
             primaryAction: PrimaryButton(
               label: 'Continue',
               onPressed: () {
@@ -192,12 +213,17 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
         );
       }
       if (previous?.stage != next.stage && next.stage == RecitationStage.interventionRequired) {
+        HapticFeedback.selectionClick();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Let\'s review first',
             message: 'Listen and read the ayah again before trying.',
             variant: ModalSheetVariant.info,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.lesson),
+            ),
             primaryAction: PrimaryButton(
               label: 'Back to learn',
               onPressed: () {
@@ -209,14 +235,19 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
         );
       }
       if (previous?.stage != next.stage && next.stage == RecitationStage.lockedOut) {
+        HapticFeedback.mediumImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Try again tomorrow',
-            message: 'You have used all attempts for today.',
+            message: 'You have used all attempts for today. Come back tomorrow.',
             variant: ModalSheetVariant.info,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.sleep),
+            ),
             primaryAction: PrimaryButton(
-              label: 'Return home',
+              label: 'Back home',
               onPressed: () => context.go('/child/home'),
             ),
           ),
@@ -297,16 +328,20 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
                             onPrimaryAction: () {
                               switch (controller.stage) {
                                 case RecitationStage.idle:
+                                  HapticFeedback.selectionClick();
                                   notifier.setRecording();
                                   break;
                                 case RecitationStage.recording:
+                                  HapticFeedback.lightImpact();
                                   notifier.stopRecording();
                                   break;
                                 case RecitationStage.review:
+                                  HapticFeedback.selectionClick();
                                   notifier.submitRecording();
                                   break;
                                 case RecitationStage.feedbackSuccess:
                                 case RecitationStage.feedbackFail:
+                                  HapticFeedback.selectionClick();
                                   notifier.setRecording();
                                   break;
                                 case RecitationStage.uploading:
@@ -316,8 +351,14 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
                                   break;
                               }
                             },
-                            onSecondaryAction: () => notifier.setRecording(),
-                            onListen: () => notifier.playRecording(),
+                            onSecondaryAction: () {
+                              HapticFeedback.selectionClick();
+                              notifier.setRecording();
+                            },
+                            onListen: () {
+                              HapticFeedback.selectionClick();
+                              notifier.playRecording();
+                            },
                             durationLabel: controller.durationLabel,
                           ),
                           const SizedBox(height: AppSpacing.lg),

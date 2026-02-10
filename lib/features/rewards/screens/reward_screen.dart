@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/reward_card.dart';
@@ -63,11 +64,7 @@ class RewardScreen extends StatelessWidget {
                     Center(
                       child: IllustrationFrame(
                         size: 150,
-                        child: Icon(
-                          _iconFor(event.type),
-                          size: 48,
-                          color: scheme.onSurface,
-                        ),
+                        child: AtlasIllustration(kind: _illustrationFor(event.type)),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -138,14 +135,14 @@ class RewardScreen extends StatelessWidget {
     }
   }
 
-  IconData _iconFor(RewardType type) {
+  AtlasIllustrationKind _illustrationFor(RewardType type) {
     switch (type) {
       case RewardType.hasanat:
-        return Icons.auto_awesome_rounded;
+        return AtlasIllustrationKind.hasanat;
       case RewardType.badge:
-        return Icons.workspace_premium_rounded;
+        return AtlasIllustrationKind.badge;
       case RewardType.trophy:
-        return Icons.emoji_events_rounded;
+        return AtlasIllustrationKind.trophy;
     }
   }
 }

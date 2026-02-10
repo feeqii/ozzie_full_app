@@ -5,6 +5,7 @@ import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
 import 'action_icon_button.dart';
+import 'atlas_illustrations.dart';
 import 'illustration_frame.dart';
 import 'primary_button.dart';
 
@@ -28,12 +29,11 @@ class RecorderModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         IllustrationFrame(
           variant: IllustrationFrameVariant.map,
-          child: Icon(Icons.graphic_eq_rounded, size: 54, color: scheme.onSurface),
+          child: const AtlasIllustration(kind: AtlasIllustrationKind.recite),
         ),
         const SizedBox(height: AppSpacing.lg),
         _buildActionRow(context),

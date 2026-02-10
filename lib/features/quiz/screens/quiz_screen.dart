@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -10,6 +11,7 @@ import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/inline_loader.dart';
 import '../../../core/ui/label_chip.dart';
@@ -54,12 +56,17 @@ class QuizScreen extends ConsumerWidget {
       if (previous?.errorMessage != next.errorMessage &&
           next.errorMessage != null &&
           next.errorMessage!.isNotEmpty) {
+        HapticFeedback.lightImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Something went wrong',
             message: next.errorMessage!,
             variant: ModalSheetVariant.fail,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.retry),
+            ),
             primaryAction: PrimaryButton(
               label: 'Okay',
               onPressed: () => context.pop(),
@@ -70,6 +77,7 @@ class QuizScreen extends ConsumerWidget {
 
       if (previous?.rewardEvent != next.rewardEvent &&
           next.rewardEvent != null) {
+        HapticFeedback.mediumImpact();
         final event = next.rewardEvent!;
         final isFinal = event.type == RewardType.trophy;
         final args = RewardScreenArgs(
@@ -86,19 +94,16 @@ class QuizScreen extends ConsumerWidget {
 
       if (previous?.lockedUntil != next.lockedUntil &&
           next.lockedUntil != null) {
+        HapticFeedback.mediumImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Try again tomorrow',
-            message: 'You have reached the maximum attempts for today.',
+            message: 'You have used all attempts for today. Come back tomorrow.',
             variant: ModalSheetVariant.info,
             illustration: IllustrationFrame(
               size: 150,
-              child: Icon(
-                Icons.bedtime_rounded,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+              child: const AtlasIllustration(kind: AtlasIllustrationKind.sleep),
             ),
             primaryAction: PrimaryButton(
               label: 'Back home',
@@ -119,6 +124,11 @@ class QuizScreen extends ConsumerWidget {
         }
 
         final passed = next.passed == true;
+        if (passed) {
+          HapticFeedback.mediumImpact();
+        } else {
+          HapticFeedback.lightImpact();
+        }
         if (!passed && next.lockedUntil != null) {
           // Lock-out modal is handled above.
           return;
@@ -126,19 +136,15 @@ class QuizScreen extends ConsumerWidget {
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
-            title: passed ? 'Nice work' : 'Not quite',
-            message: passed
-                ? 'You answered correctly. Keep going!'
-                : 'Review the lesson and try the quiz again.',
+            title: passed ? 'Great job' : 'Almost',
+            message: passed ? 'Ready for the next one?' : 'Review, then try again.',
             variant: passed
                 ? ModalSheetVariant.success
                 : ModalSheetVariant.fail,
             illustration: IllustrationFrame(
               size: 150,
-              child: Icon(
-                passed ? Icons.verified_rounded : Icons.refresh_rounded,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurface,
+              child: AtlasIllustration(
+                kind: passed ? AtlasIllustrationKind.success : AtlasIllustrationKind.retry,
               ),
             ),
             primaryAction: PrimaryButton(
@@ -165,12 +171,17 @@ class QuizScreen extends ConsumerWidget {
       if (previous?.errorMessage != next.errorMessage &&
           next.errorMessage != null &&
           next.errorMessage!.isNotEmpty) {
+        HapticFeedback.lightImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
             title: 'Something went wrong',
             message: next.errorMessage!,
             variant: ModalSheetVariant.fail,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.retry),
+            ),
             primaryAction: PrimaryButton(
               label: 'Okay',
               onPressed: () => context.pop(),
@@ -181,6 +192,7 @@ class QuizScreen extends ConsumerWidget {
 
       if (previous?.showMicSettingsPrompt != next.showMicSettingsPrompt &&
           next.showMicSettingsPrompt) {
+        HapticFeedback.selectionClick();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
@@ -188,6 +200,10 @@ class QuizScreen extends ConsumerWidget {
             message:
                 'Enable the microphone in Settings to record your recitation.',
             variant: ModalSheetVariant.info,
+            illustration: const IllustrationFrame(
+              size: 150,
+              child: AtlasIllustration(kind: AtlasIllustrationKind.recite),
+            ),
             primaryAction: PrimaryButton(
               label: 'Open Settings',
               onPressed: () async {
@@ -209,6 +225,7 @@ class QuizScreen extends ConsumerWidget {
       if (previous?.lockedUntil != lockedUntil &&
           lockedUntil != null &&
           lockedUntil.isAfter(DateTime.now())) {
+        HapticFeedback.mediumImpact();
         ModalSheetTrigger.show(
           context,
           sheet: ModalSheet(
@@ -217,11 +234,7 @@ class QuizScreen extends ConsumerWidget {
             variant: ModalSheetVariant.info,
             illustration: IllustrationFrame(
               size: 150,
-              child: Icon(
-                Icons.bedtime_rounded,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+              child: const AtlasIllustration(kind: AtlasIllustrationKind.sleep),
             ),
             primaryAction: PrimaryButton(
               label: 'Back home',
@@ -330,12 +343,15 @@ class QuizScreen extends ConsumerWidget {
                                     case QuizRecitationStage.idle:
                                     case QuizRecitationStage.success:
                                     case QuizRecitationStage.fail:
+                                      HapticFeedback.selectionClick();
                                       recitationNotifier.setRecording();
                                       break;
                                     case QuizRecitationStage.recording:
+                                      HapticFeedback.lightImpact();
                                       recitationNotifier.stopRecording();
                                       break;
                                     case QuizRecitationStage.review:
+                                      HapticFeedback.selectionClick();
                                       recitationNotifier.submitRecording();
                                       break;
                                     case QuizRecitationStage.submitting:
@@ -343,8 +359,14 @@ class QuizScreen extends ConsumerWidget {
                                       break;
                                   }
                                 },
-                                onSecondaryAction: () => recitationNotifier.setRecording(),
-                                onListen: () => recitationNotifier.playRecording(),
+                                onSecondaryAction: () {
+                                  HapticFeedback.selectionClick();
+                                  recitationNotifier.setRecording();
+                                },
+                                onListen: () {
+                                  HapticFeedback.selectionClick();
+                                  recitationNotifier.playRecording();
+                                },
                                 durationLabel: recitation.durationLabel,
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -395,10 +417,13 @@ class QuizScreen extends ConsumerWidget {
                           QuizOptionCard(
                             label: question.options[index].label,
                             state: notifier.optionState(question, question.options[index]),
-                            onTap: () => notifier.selectOption(
-                              question.id,
-                              question.options[index].id,
-                            ),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              notifier.selectOption(
+                                question.id,
+                                question.options[index].id,
+                              );
+                            },
                           ),
                           if (index != question.options.length - 1) const SizedBox(height: AppSpacing.md),
                         ],

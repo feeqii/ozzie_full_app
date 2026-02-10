@@ -7,6 +7,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/atlas_background.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
@@ -51,11 +52,7 @@ class AyahLearnScreen extends ConsumerWidget {
                         children: [
                           IllustrationFrame(
                             size: 190,
-                            child: Icon(
-                              Icons.auto_stories_rounded,
-                              size: 56,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                            child: const AtlasIllustration(kind: AtlasIllustrationKind.lesson),
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           AppCard(

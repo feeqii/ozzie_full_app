@@ -2,12 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_extensions.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/cosmic_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
+import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/modal_sheet.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../journey/models/journey_models.dart';
@@ -221,13 +224,18 @@ class SurahJourneyScreen extends ConsumerWidget {
 
   Future<void> _showLocked(BuildContext context, JourneyStep step) {
     final lockedUntil = step.progress.lockedUntil;
-    final message = lockedUntil != null ? 'Try again after ${lockedUntil.toLocal()}.' : 'Complete previous levels to unlock.';
+    final message = lockedUntil != null ? 'Try again tomorrow.' : 'Complete the previous step to unlock this.';
+    HapticFeedback.mediumImpact();
     return ModalSheetTrigger.show(
       context,
       sheet: ModalSheet(
         title: 'Locked',
         message: message,
         variant: ModalSheetVariant.info,
+        illustration: const IllustrationFrame(
+          size: 150,
+          child: AtlasIllustration(kind: AtlasIllustrationKind.locked),
+        ),
         primaryAction: PrimaryButton(
           label: 'Okay',
           onPressed: () => context.pop(),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 
@@ -19,7 +20,7 @@ class AuthSuccessScreen extends StatelessWidget {
         children: [
           const IllustrationFrame(
             size: 140,
-            child: Icon(Icons.check_circle_outline, size: 52),
+            child: AtlasIllustration(kind: AtlasIllustrationKind.success),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text('Success', style: Theme.of(context).textTheme.displayLarge),

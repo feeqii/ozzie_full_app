@@ -7,6 +7,7 @@ import '../../../core/ui/app_app_bar.dart';
 import '../../../core/ui/app_card.dart';
 import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../map/providers/map_providers.dart';
@@ -48,7 +49,7 @@ class SurahIntroScreen extends ConsumerWidget {
               const Center(
                 child: IllustrationFrame(
                   size: 140,
-                  child: Icon(Icons.auto_stories_rounded, size: 48),
+                  child: AtlasIllustration(kind: AtlasIllustrationKind.lesson),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),

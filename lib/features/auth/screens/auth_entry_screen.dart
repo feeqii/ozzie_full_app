@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/ui/app_scaffold.dart';
 import '../../../core/ui/atlas_background.dart';
+import '../../../core/ui/atlas_illustrations.dart';
 import '../../../core/ui/illustration_frame.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../../core/ui/secondary_button.dart';
@@ -21,7 +22,7 @@ class AuthEntryScreen extends StatelessWidget {
           const Spacer(),
           const IllustrationFrame(
             size: 140,
-            child: Icon(Icons.image_outlined, size: 48),
+            child: AtlasIllustration(kind: AtlasIllustrationKind.quiz),
           ),
           const SizedBox(height: AppSpacing.xxl),
           PrimaryButton(

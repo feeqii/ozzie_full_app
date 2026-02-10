@@ -4,6 +4,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/ui/action_icon_button.dart';
 import '../../core/ui/atlas_background.dart';
+import '../../core/ui/atlas_illustrations.dart';
 import '../../core/ui/illustration_frame.dart';
 import '../../core/ui/inline_loader.dart';
 import '../../core/ui/full_screen_loader.dart';
@@ -100,11 +101,11 @@ class DesignSystemGalleryScreen extends StatelessWidget {
               ModalSheetTrigger.show(
                 context,
                 sheet: ModalSheet(
-                  title: 'Amazing Work 🎉',
+                  title: 'Amazing work',
                   message: 'One more time to master it.',
                   variant: ModalSheetVariant.success,
                   illustration: const IllustrationFrame(
-                    child: Icon(Icons.emoji_events_outlined),
+                    child: AtlasIllustration(kind: AtlasIllustrationKind.success),
                   ),
                   primaryAction: PrimaryButton(
                     label: 'Next',
@@ -227,7 +228,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Illustration Frame'),
           const IllustrationFrame(
-            child: Icon(Icons.image_outlined),
+            child: AtlasIllustration(kind: AtlasIllustrationKind.quiz),
           ),
           const SizedBox(height: AppSpacing.xxl),
         ],
