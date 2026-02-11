@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme_v2/ozzie_theme.dart';
 import '../../core/ui/action_icon_button.dart';
 import '../../core/ui/atlas_background.dart';
 import '../../core/ui/atlas_illustrations.dart';
@@ -28,6 +29,14 @@ import '../../core/ui/recorder_module.dart';
 import '../../core/ui/reward_card.dart';
 import '../../core/ui/stars_row.dart';
 import '../../core/ui/stat_tile.dart';
+import '../../core/ui_v2/components/ozzie_button.dart';
+import '../../core/ui_v2/components/ozzie_card.dart';
+import '../../core/ui_v2/components/ozzie_choice_chip.dart';
+import '../../core/ui_v2/components/ozzie_input.dart';
+import '../../core/ui_v2/components/ozzie_progress_rail.dart';
+import '../../core/ui_v2/components/ozzie_reward_sheet.dart';
+import '../../core/ui_v2/components/ozzie_top_bar.dart';
+import '../../core/ui_v2/mascot/ozzie_guide_widget.dart';
 
 class DesignSystemGalleryScreen extends StatelessWidget {
   const DesignSystemGalleryScreen({super.key});
@@ -50,8 +59,12 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'العربية',
-            style: AppTextStyles.arabicTitle.copyWith(color: Theme.of(context).colorScheme.onSurface),
+            style: AppTextStyles.arabicTitle.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
+          const SizedBox(height: AppSpacing.xl),
+          _buildV2FoundationSection(context),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Buttons'),
           PrimaryButton(label: 'Primary', onPressed: () {}),
@@ -105,7 +118,9 @@ class DesignSystemGalleryScreen extends StatelessWidget {
                   message: 'One more time to master it.',
                   variant: ModalSheetVariant.success,
                   illustration: const IllustrationFrame(
-                    child: AtlasIllustration(kind: AtlasIllustrationKind.success),
+                    child: AtlasIllustration(
+                      kind: AtlasIllustrationKind.success,
+                    ),
                   ),
                   primaryAction: PrimaryButton(
                     label: 'Next',
@@ -129,18 +144,33 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           PinInput(length: 4, onForgotPin: () {}),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Quiz Option Card'),
-          QuizOptionCard(label: 'Default option', state: QuizOptionState.normal),
+          QuizOptionCard(
+            label: 'Default option',
+            state: QuizOptionState.normal,
+          ),
           const SizedBox(height: AppSpacing.md),
-          QuizOptionCard(label: 'Selected option', state: QuizOptionState.selected),
+          QuizOptionCard(
+            label: 'Selected option',
+            state: QuizOptionState.selected,
+          ),
           const SizedBox(height: AppSpacing.md),
-          QuizOptionCard(label: 'Correct option', state: QuizOptionState.correct),
+          QuizOptionCard(
+            label: 'Correct option',
+            state: QuizOptionState.correct,
+          ),
           const SizedBox(height: AppSpacing.md),
           QuizOptionCard(label: 'Wrong option', state: QuizOptionState.wrong),
           const SizedBox(height: AppSpacing.md),
-          QuizOptionCard(label: 'Disabled option', state: QuizOptionState.disabled),
+          QuizOptionCard(
+            label: 'Disabled option',
+            state: QuizOptionState.disabled,
+          ),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Recorder Module'),
-          const RecorderModule(state: RecorderState.idle, onPrimaryAction: _noop),
+          const RecorderModule(
+            state: RecorderState.idle,
+            onPrimaryAction: _noop,
+          ),
           const SizedBox(height: AppSpacing.md),
           const RecorderModule(
             state: RecorderState.recording,
@@ -208,7 +238,11 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const FullScreenLoader(message: 'Uploading...'),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Settings + Profiles'),
-          const SettingsRow(label: 'Daily Attempts', value: '6', showChevron: true),
+          const SettingsRow(
+            label: 'Daily Attempts',
+            value: '6',
+            showChevron: true,
+          ),
           const SizedBox(height: AppSpacing.md),
           const SettingsRow(
             label: 'Notifications',
@@ -236,13 +270,112 @@ class DesignSystemGalleryScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildV2FoundationSection(BuildContext context) {
+    return Theme(
+      data: OzzieTheme.childLight(),
+      child: Builder(
+        builder: (v2Context) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _sectionTitle(v2Context, 'V2 Foundation'),
+              const OzzieTopBar(title: 'Star Path', subtitle: 'V2 Preview'),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Display XL',
+                style: v2Context.ozzieTokens.type.displayXL.copyWith(
+                  color: v2Context.ozzieTokens.colors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Readable body copy for kids and parents.',
+                style: v2Context.ozzieTokens.type.body.copyWith(
+                  color: v2Context.ozzieTokens.colors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OzzieCard(
+                variant: OzzieCardVariant.raised,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    OzzieProgressRail(label: 'Session progress', value: 0.63),
+                    SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        OzzieChoiceChip(label: 'Warm-up', selected: true),
+                        OzzieChoiceChip(label: 'Quiz'),
+                        OzzieChoiceChip(label: 'Recite'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const OzzieInput(
+                label: 'Mission title',
+                hint: 'Read Surah Al-Fatihah',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OzzieButton(
+                label: 'Primary action',
+                icon: Icons.rocket_launch_rounded,
+                onPressed: () {},
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              OzzieButton(
+                label: 'Secondary action',
+                variant: OzzieButtonVariant.secondary,
+                onPressed: () {},
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const OzzieButton(
+                label: 'Ghost disabled',
+                variant: OzzieButtonVariant.ghost,
+                onPressed: null,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OzzieButton(
+                label: 'Preview reward sheet',
+                icon: Icons.auto_awesome_rounded,
+                onPressed: () => _showV2RewardSheet(v2Context),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: const [
+                  OzzieGuideWidget(width: 72, height: 72, enableRive: false),
+                  SizedBox(width: AppSpacing.md),
+                  OzzieGuideWidget(width: 72, height: 72),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  static Future<void> _showV2RewardSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return const OzzieRewardSheet(
+          title: 'Mission complete',
+          message: 'You unlocked a new star for today.',
+        );
+      },
+    );
+  }
+
   static Widget _sectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
+      child: Text(title, style: Theme.of(context).textTheme.headlineSmall),
     );
   }
 
