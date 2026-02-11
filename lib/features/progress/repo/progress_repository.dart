@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/child_progress_summary.dart';
@@ -6,13 +8,18 @@ class ProgressRepository {
   ProgressRepository(this._client);
 
   final SupabaseClient _client;
+  static const Duration _queryTimeout = Duration(seconds: 12);
 
   Future<ChildStreak> fetchStreak(String childId) async {
     final response = await _client
         .from('streaks')
         .select('current_streak, best_streak, last_practice_date')
         .eq('child_id', childId)
-        .maybeSingle();
+        .maybeSingle()
+        .timeout(
+          _queryTimeout,
+          onTimeout: () => throw TimeoutException('streak query timed out'),
+        );
 
     if (response == null) {
       return ChildStreak.empty();
@@ -21,18 +28,27 @@ class ProgressRepository {
     return ChildStreak.fromJson(response);
   }
 
-  Future<SessionSummary> fetchSessionSummary(String childId, {DateTime? since}) async {
+  Future<SessionSummary> fetchSessionSummary(
+    String childId, {
+    DateTime? since,
+  }) async {
     final start = since ?? DateTime.now().subtract(const Duration(days: 7));
     final response = await _client
         .from('sessions')
         .select('started_at, ended_at, counted')
         .eq('child_id', childId)
         .gte('started_at', start.toIso8601String())
-        .order('started_at', ascending: false);
+        .order('started_at', ascending: false)
+        .timeout(
+          _queryTimeout,
+          onTimeout: () => throw TimeoutException('sessions query timed out'),
+        );
 
     final rows = (response as List).cast<Map<String, dynamic>>();
     final entries = rows.map(SessionEntry.fromJson).toList();
-    final countedEntries = entries.where((entry) => entry.counted && entry.duration != null).toList();
+    final countedEntries = entries
+        .where((entry) => entry.counted && entry.duration != null)
+        .toList();
 
     final totalSeconds = countedEntries.fold<int>(
       0,
@@ -52,7 +68,10 @@ class ProgressRepository {
     );
   }
 
-  Future<ScoreSummary> fetchScoreSummary(String childId, {DateTime? since}) async {
+  Future<ScoreSummary> fetchScoreSummary(
+    String childId, {
+    DateTime? since,
+  }) async {
     final start = since ?? DateTime.now().subtract(const Duration(days: 7));
     final recitationsFuture = _client
         .from('recitation_attempts')
@@ -60,7 +79,12 @@ class ProgressRepository {
         .eq('child_id', childId)
         .gte('created_at', start.toIso8601String())
         .order('created_at', ascending: false)
-        .limit(50);
+        .limit(50)
+        .timeout(
+          _queryTimeout,
+          onTimeout: () =>
+              throw TimeoutException('recitation scores query timed out'),
+        );
 
     final quizzesFuture = _client
         .from('quiz_attempts')
@@ -68,7 +92,12 @@ class ProgressRepository {
         .eq('child_id', childId)
         .gte('created_at', start.toIso8601String())
         .order('created_at', ascending: false)
-        .limit(50);
+        .limit(50)
+        .timeout(
+          _queryTimeout,
+          onTimeout: () =>
+              throw TimeoutException('quiz scores query timed out'),
+        );
 
     final responses = await Future.wait([recitationsFuture, quizzesFuture]);
     final recitationRows = (responses[0] as List).cast<Map<String, dynamic>>();

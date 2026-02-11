@@ -30,7 +30,11 @@ class SelectChildScreen extends ConsumerWidget {
           ),
         ],
       ),
-      background: const AtlasBackground(seed: 77, intensity: 0.7, showGrid: false),
+      background: const AtlasBackground(
+        seed: 77,
+        intensity: 0.7,
+        showGrid: false,
+      ),
       body: childrenAsync.when(
         data: (children) {
           if (children.isEmpty) {
@@ -45,37 +49,40 @@ class SelectChildScreen extends ConsumerWidget {
           return LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: IntrinsicHeight(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Select a child', style: Theme.of(context).textTheme.displayLarge),
+                        Text(
+                          'Select a child',
+                          style: Theme.of(context).textTheme.displayLarge,
+                        ),
                         const SizedBox(height: AppSpacing.lg),
-                        ...children
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: entry.key == children.length - 1 ? 0 : AppSpacing.md,
-                                ),
-                                child: ChildProfileCard(
-                                  name: entry.value.name,
-                                  subtitle: 'Tap to continue',
-                                  onTap: () async {
-                                    await ref
-                                        .read(selectedChildIdProvider.notifier)
-                                        .selectChild(entry.value.id);
-                                    if (context.mounted) {
-                                      context.push('/child/home');
-                                    }
-                                  },
-                                ),
-                              ),
+                        ...children.asMap().entries.map(
+                          (entry) => Padding(
+                            padding: EdgeInsets.only(
+                              bottom: entry.key == children.length - 1
+                                  ? 0
+                                  : AppSpacing.md,
                             ),
+                            child: ChildProfileCard(
+                              name: entry.value.name,
+                              subtitle: 'Tap to continue',
+                              onTap: () async {
+                                await ref
+                                    .read(selectedChildIdProvider.notifier)
+                                    .selectChild(entry.value.id);
+                                if (context.mounted) {
+                                  context.go('/child/home');
+                                }
+                              },
+                            ),
+                          ),
+                        ),
                         const Spacer(),
                         PrimaryButton(
                           label: 'Add child',
@@ -94,7 +101,10 @@ class SelectChildScreen extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Unable to load children', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Unable to load children',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Please try again.',
