@@ -12,6 +12,9 @@
 .swiftpm/
 migrate_working_dir/
 .env
+.env.fastlane
+.env.fastlane.local
+ios/AuthKey_*.p8
 .kilocode/
 notes
 output/
@@ -36,6 +39,8 @@ docs/Ozzie_Backend_Documentation_For_Mamoon.pdf
 .pub-cache/
 .pub/
 /build/
+/ios/build/
+/ios/.bundle/
 /coverage/
 
 # Symbolication related
