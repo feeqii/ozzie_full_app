@@ -73,7 +73,11 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
     }
 
     if (_pin != _confirm) {
-      AppSnackbar.show(context, message: 'PINs do not match. Try again.', isError: true);
+      AppSnackbar.show(
+        context,
+        message: 'PINs do not match. Try again.',
+        isError: true,
+      );
       setState(() {
         _pin = '';
         _confirm = '';
@@ -94,13 +98,17 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
       await ref.read(parentProfileProvider.future);
       ref.read(pinVerifiedProvider.notifier).state = true;
       if (mounted) {
-        context.go('/parent/child/select');
+        context.go(_resolvedNextRoute());
       }
     } catch (error) {
       if (!mounted) {
         return;
       }
-      AppSnackbar.show(context, message: 'Unable to save PIN. Try again.', isError: true);
+      AppSnackbar.show(
+        context,
+        message: 'Unable to save PIN. Try again.',
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -108,6 +116,14 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
         });
       }
     }
+  }
+
+  String _resolvedNextRoute() {
+    final next = GoRouterState.of(context).uri.queryParameters['next'];
+    if (next == null || next.isEmpty || !next.startsWith('/')) {
+      return '/parent/dashboard';
+    }
+    return next;
   }
 
   @override
@@ -119,7 +135,11 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Parental PIN', showBack: false),
-      background: const AtlasBackground(seed: 73, intensity: 0.75, showGrid: false),
+      background: const AtlasBackground(
+        seed: 73,
+        intensity: 0.75,
+        showGrid: false,
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final scheme = Theme.of(context).colorScheme;
@@ -140,8 +160,8 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
                     Text(
                       message,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.78),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.78),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: AppSpacing.xl),
@@ -185,10 +205,7 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
 }
 
 class _PinKeypad extends StatelessWidget {
-  const _PinKeypad({
-    required this.onDigit,
-    required this.onBackspace,
-  });
+  const _PinKeypad({required this.onDigit, required this.onBackspace});
 
   final ValueChanged<String> onDigit;
   final VoidCallback onBackspace;
@@ -213,10 +230,7 @@ class _PinKeypad extends StatelessWidget {
                 return const SizedBox(width: 56, height: 56);
               }
               if (value == 'back') {
-                return _KeypadButton(
-                  label: '⌫',
-                  onPressed: onBackspace,
-                );
+                return _KeypadButton(label: '⌫', onPressed: onBackspace);
               }
               return _KeypadButton(
                 label: value,
@@ -231,10 +245,7 @@ class _PinKeypad extends StatelessWidget {
 }
 
 class _KeypadButton extends StatelessWidget {
-  const _KeypadButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _KeypadButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -248,9 +259,9 @@ class _KeypadButton extends StatelessWidget {
         onPressed: onPressed,
         child: Text(
           label,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
         ),
       ),
     );

@@ -49,12 +49,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final inAuthFlow = state.uri.path.startsWith('/auth');
       final inDesignFlow = state.uri.path == '/';
       final inParentFlow = state.uri.path.startsWith('/parent');
+      final inParentPinFlow = state.uri.path.startsWith('/parent/pin/');
       final inChildFlow = state.uri.path.startsWith('/child');
       final isAllowedParentRoute =
-          state.uri.path == '/parent/dashboard' || state.uri.path.startsWith('/parent/child');
+          state.uri.path == '/parent/dashboard' ||
+          state.uri.path.startsWith('/parent/child') ||
+          state.uri.path.startsWith('/parent/pin/');
 
       final profileAsync = ref.read(parentProfileProvider);
-      final pinVerified = ref.read(pinVerifiedProvider);
       final childrenAsync = ref.read(childrenProvider);
       final selectedChildIdAsync = ref.read(selectedChildIdProvider);
 
@@ -69,11 +71,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      if (profileAsync.isLoading || childrenAsync.isLoading || selectedChildIdAsync.isLoading) {
+      if (profileAsync.isLoading ||
+          childrenAsync.isLoading ||
+          selectedChildIdAsync.isLoading) {
         return null;
       }
 
-      if (profileAsync.hasError || childrenAsync.hasError || selectedChildIdAsync.hasError) {
+      if (profileAsync.hasError ||
+          childrenAsync.hasError ||
+          selectedChildIdAsync.hasError) {
         return null;
       }
 
@@ -85,23 +91,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/auth/success';
       }
 
-      final pinHash = profile.pinHash;
-      if (pinHash == null || pinHash.isEmpty) {
-        if (state.uri.path != '/parent/pin/setup') {
-          return '/parent/pin/setup';
-        }
-        return null;
-      }
-
-      if (!pinVerified) {
-        if (state.uri.path != '/parent/pin/verify') {
-          return '/parent/pin/verify';
-        }
-        return null;
-      }
-
       final children = childrenAsync.asData?.value ?? const [];
       if (children.isEmpty) {
+        if (inParentPinFlow) {
+          return null;
+        }
         if (state.uri.path != '/parent/child/add') {
           return '/parent/child/add';
         }
@@ -124,7 +118,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final selectedId = selectedChildIdAsync.asData?.value;
-      final hasSelected = selectedId != null && children.any((child) => child.id == selectedId);
+      final hasSelected =
+          selectedId != null && children.any((child) => child.id == selectedId);
       if (!hasSelected) {
         if (state.uri.path == '/parent/child/select') {
           return null;
@@ -334,9 +329,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      body: Center(
-        child: Text('Route not found: ${state.uri.path}'),
-      ),
+      body: Center(child: Text('Route not found: ${state.uri.path}')),
     ),
   );
 });

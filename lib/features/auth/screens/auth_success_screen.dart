@@ -14,7 +14,11 @@ class AuthSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      background: const AtlasBackground(seed: 23, intensity: 0.8, showGrid: false),
+      background: const AtlasBackground(
+        seed: 23,
+        intensity: 0.8,
+        showGrid: false,
+      ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -25,11 +29,24 @@ class AuthSuccessScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Text('Success', style: Theme.of(context).textTheme.displayLarge),
           const SizedBox(height: AppSpacing.sm),
-          Text('You are signed in', style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            'You are signed in',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const SizedBox(height: AppSpacing.xl),
           PrimaryButton(
             label: 'Continue',
-            onPressed: () => context.go('/parent/pin/setup'),
+            onPressed: () {
+              final verifyUri = Uri(
+                path: '/parent/pin/verify',
+                queryParameters: const {'next': '/parent/child/select'},
+              );
+              final setupUri = Uri(
+                path: '/parent/pin/setup',
+                queryParameters: {'next': verifyUri.toString()},
+              );
+              context.go(setupUri.toString());
+            },
           ),
         ],
       ),

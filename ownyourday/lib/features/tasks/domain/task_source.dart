@@ -1,0 +1,1 @@
+enum TaskSource { manual, ai }

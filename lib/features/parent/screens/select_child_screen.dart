@@ -11,6 +11,7 @@ import '../../../core/ui/child_profile_card.dart';
 import '../../../core/ui/empty_state.dart';
 import '../../../core/ui/primary_button.dart';
 import '../../child/providers/child_providers.dart';
+import '../providers/parent_profile_provider.dart';
 
 class SelectChildScreen extends ConsumerWidget {
   const SelectChildScreen({super.key});
@@ -26,7 +27,49 @@ class SelectChildScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.dashboard_outlined),
-            onPressed: () => context.push('/parent/dashboard'),
+            onPressed: () async {
+              const nextRoute = '/parent/dashboard';
+              try {
+                final profile = await ref.read(parentProfileProvider.future);
+                if (!context.mounted) {
+                  return;
+                }
+                if (profile == null) {
+                  context.go('/auth/success');
+                  return;
+                }
+
+                final pinHash = profile.pinHash;
+                final hasPin = pinHash != null && pinHash.isNotEmpty;
+                if (!hasPin) {
+                  final verifyUri = Uri(
+                    path: '/parent/pin/verify',
+                    queryParameters: const {'next': nextRoute},
+                  );
+                  final setupUri = Uri(
+                    path: '/parent/pin/setup',
+                    queryParameters: {'next': verifyUri.toString()},
+                  );
+                  context.push(setupUri.toString());
+                  return;
+                }
+
+                final verifyUri = Uri(
+                  path: '/parent/pin/verify',
+                  queryParameters: const {'next': nextRoute},
+                );
+                context.push(verifyUri.toString());
+              } catch (_) {
+                if (!context.mounted) {
+                  return;
+                }
+                AppSnackbar.show(
+                  context,
+                  message: 'Unable to open parent dashboard right now.',
+                  isError: true,
+                );
+              }
+            },
           ),
         ],
       ),

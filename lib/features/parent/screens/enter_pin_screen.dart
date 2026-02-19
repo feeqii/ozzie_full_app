@@ -56,7 +56,11 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
 
     final attempts = ref.read(pinAttemptProvider.notifier);
     if (attempts.isCoolingDown) {
-      AppSnackbar.show(context, message: 'Too many attempts. Try again shortly.', isError: true);
+      AppSnackbar.show(
+        context,
+        message: 'Too many attempts. Try again shortly.',
+        isError: true,
+      );
       return;
     }
 
@@ -67,8 +71,12 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
     final profile = await ref.read(parentProfileProvider.future);
     final storedHash = profile?.pinHash;
     if (storedHash == null || storedHash.isEmpty) {
+      final setupUri = Uri(
+        path: '/parent/pin/setup',
+        queryParameters: {'next': _resolvedNextRoute()},
+      );
       if (mounted) {
-        context.go('/parent/pin/setup');
+        context.go(setupUri.toString());
       }
       if (mounted) {
         setState(() {
@@ -93,7 +101,7 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
       attempts.reset();
       ref.read(pinVerifiedProvider.notifier).state = true;
       if (mounted) {
-        context.go('/parent/child/select');
+        context.go(_resolvedNextRoute());
       }
     }
 
@@ -102,6 +110,14 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  String _resolvedNextRoute() {
+    final next = GoRouterState.of(context).uri.queryParameters['next'];
+    if (next == null || next.isEmpty || !next.startsWith('/')) {
+      return '/parent/dashboard';
+    }
+    return next;
   }
 
   void _startCooldownTickerIfNeeded() {
@@ -131,7 +147,11 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
 
     return AppScaffold(
       appBar: const AppAppBar(title: 'Parental PIN', showBack: false),
-      background: const AtlasBackground(seed: 75, intensity: 0.75, showGrid: false),
+      background: const AtlasBackground(
+        seed: 75,
+        intensity: 0.75,
+        showGrid: false,
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final scheme = Theme.of(context).colorScheme;
@@ -152,15 +172,16 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
                     Text(
                       'Please confirm your entrance.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.78),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.78),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     if (cooldownSeconds > 0) ...[
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         'Try again in $cooldownSeconds seconds',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
                               color: scheme.onSurface.withValues(alpha: 0.7),
                             ),
                         textAlign: TextAlign.center,
@@ -210,10 +231,7 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
 }
 
 class _PinKeypad extends StatelessWidget {
-  const _PinKeypad({
-    required this.onDigit,
-    required this.onBackspace,
-  });
+  const _PinKeypad({required this.onDigit, required this.onBackspace});
 
   final ValueChanged<String> onDigit;
   final VoidCallback onBackspace;
@@ -238,10 +256,7 @@ class _PinKeypad extends StatelessWidget {
                 return const SizedBox(width: 56, height: 56);
               }
               if (value == 'back') {
-                return _KeypadButton(
-                  label: '⌫',
-                  onPressed: onBackspace,
-                );
+                return _KeypadButton(label: '⌫', onPressed: onBackspace);
               }
               return _KeypadButton(
                 label: value,
@@ -256,10 +271,7 @@ class _PinKeypad extends StatelessWidget {
 }
 
 class _KeypadButton extends StatelessWidget {
-  const _KeypadButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _KeypadButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -273,9 +285,9 @@ class _KeypadButton extends StatelessWidget {
         onPressed: onPressed,
         child: Text(
           label,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
         ),
       ),
     );
