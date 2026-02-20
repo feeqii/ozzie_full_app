@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../auth/controllers/auth_controller.dart';
-import '../../onboarding/theme/onboarding_tokens.dart';
-import '../../onboarding/ui/onboarding_button.dart';
-import '../../onboarding/ui/onboarding_pin_widgets.dart';
-import '../../onboarding/ui/onboarding_scaffold.dart';
-import '../../onboarding/ui/onboarding_theme_toggle.dart';
 import '../../../core/utils/pin_hash.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../providers/parent_profile_provider.dart';
+import '../ui/parent_pin_widgets.dart';
+import '../ui/parent_scaffold.dart';
+import '../ui/parent_tokens.dart';
+import '../ui/parent_widgets.dart';
 
 class EnterPinScreen extends ConsumerStatefulWidget {
   const EnterPinScreen({super.key});
@@ -116,7 +115,7 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
   String _resolvedNextRoute() {
     final next = GoRouterState.of(context).uri.queryParameters['next'];
     if (next == null || next.isEmpty || !next.startsWith('/')) {
-      return '/parent/child/select';
+      return '/parent/dashboard';
     }
     return next;
   }
@@ -148,64 +147,76 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
+    final colors = ParentColors.resolve(Theme.of(context).brightness);
     final attemptState = ref.watch(pinAttemptProvider);
     final cooldownUntil = attemptState.cooldownUntil;
     final cooldownSeconds = cooldownUntil == null
         ? 0
         : cooldownUntil.difference(DateTime.now()).inSeconds.clamp(0, 999);
 
-    return OnboardingScaffold(
-      trailing: const OnboardingThemeToggle(),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+    return ParentScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ParentHeaderBar(
+            title: 'Parent PIN',
+            onBack: () => context.go('/child/home'),
+          ),
+          const SizedBox(height: ParentSpacing.xl),
+          Text(
+            'hello, parent',
+            textAlign: TextAlign.center,
+            style: ParentText.heading(
+              colors.textPrimary,
+            ).copyWith(fontSize: 46),
+          ),
+          const SizedBox(height: ParentSpacing.xs),
+          Text(
+            'Confirm your access with your current PIN.',
+            textAlign: TextAlign.center,
+            style: ParentText.body(colors.textSecondary),
+          ),
+          if (cooldownSeconds > 0) ...[
+            const SizedBox(height: ParentSpacing.sm),
             Text(
-              'Parent verification',
-              style: OnboardingTypography.headline(colors.textPrimary),
-            ),
-            const SizedBox(height: OnboardingSpacing.sm),
-            Text(
-              'Enter your 4-digit PIN to continue.',
-              style: OnboardingTypography.body(colors.textSecondary),
-            ),
-            if (cooldownSeconds > 0) ...[
-              const SizedBox(height: OnboardingSpacing.sm),
-              Text(
-                'Try again in $cooldownSeconds seconds.',
-                style: OnboardingTypography.label(colors.textSecondary),
-              ),
-            ],
-            const SizedBox(height: OnboardingSpacing.xl),
-            OnboardingPinDots(value: _pin),
-            if (_error != null) ...[
-              const SizedBox(height: OnboardingSpacing.sm),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: OnboardingTypography.label(OnboardingPalette.danger),
-              ),
-            ],
-            const SizedBox(height: OnboardingSpacing.lg),
-            OnboardingPinKeypad(
-              onDigit: _appendDigit,
-              onBackspace: _removeDigit,
-            ),
-            const SizedBox(height: OnboardingSpacing.md),
-            OnboardingButton(
-              label: 'Verify PIN',
-              isLoading: _isLoading,
-              onPressed: _isLoading ? null : _verify,
-            ),
-            const SizedBox(height: OnboardingSpacing.xs),
-            OnboardingButton(
-              label: 'Switch account',
-              variant: OnboardingButtonVariant.text,
-              onPressed: _switchAccount,
+              'Try again in $cooldownSeconds seconds.',
+              textAlign: TextAlign.center,
+              style: ParentText.label(colors.textSecondary),
             ),
           ],
-        ),
+          const SizedBox(height: ParentSpacing.xl),
+          ParentPinBoxes(value: _pin),
+          if (_error != null) ...[
+            const SizedBox(height: ParentSpacing.sm),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: ParentText.label(colors.danger),
+            ),
+          ],
+          const SizedBox(height: ParentSpacing.xl),
+          Expanded(
+            child: SingleChildScrollView(
+              child: ParentPinKeypad(
+                onDigit: _appendDigit,
+                onBackspace: _removeDigit,
+              ),
+            ),
+          ),
+          const SizedBox(height: ParentSpacing.sm),
+          ParentPrimaryButton(
+            label: _isLoading ? 'Verifying...' : 'Verify PIN',
+            onPressed: _isLoading ? null : _verify,
+          ),
+          const SizedBox(height: ParentSpacing.xs),
+          TextButton(
+            onPressed: _switchAccount,
+            child: Text(
+              'Switch account',
+              style: ParentText.label(colors.textSecondary),
+            ),
+          ),
+        ],
       ),
     );
   }

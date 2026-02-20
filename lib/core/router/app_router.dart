@@ -19,15 +19,24 @@ import '../../features/gallery/design_system_gallery_screen.dart';
 import '../../features/map/screens/galaxy_map_screen.dart';
 import '../../features/map/screens/planet_map_screen.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
+import '../../features/parent/screens/parent_child_dashboard_screen.dart';
+import '../../features/parent/screens/parent_child_profile_screen.dart';
+import '../../features/parent/screens/parent_control_screen.dart';
+import '../../features/parent/screens/parent_notifications_screen.dart';
+import '../../features/parent/screens/parent_progress_home_screen.dart';
+import '../../features/parent/screens/parent_recite_time_screen.dart';
+import '../../features/parent/screens/parent_score_screen.dart';
+import '../../features/parent/screens/parent_settings_screen.dart';
+import '../../features/parent/screens/parent_streak_screen.dart';
 import '../../features/parent/providers/parent_profile_provider.dart';
 import '../../features/parent/screens/add_child_screen.dart';
 import '../../features/parent/screens/enter_pin_screen.dart';
 import '../../features/parent/screens/select_child_screen.dart';
 import '../../features/parent/screens/set_pin_screen.dart';
-import '../../features/progress/screens/child_progress_home_screen.dart';
 import '../../features/progress/screens/child_recite_time_screen.dart';
 import '../../features/progress/screens/child_score_screen.dart';
 import '../../features/progress/screens/child_streak_screen.dart';
+import '../../features/progress/screens/child_progress_home_screen.dart';
 import '../../features/quiz/models/quiz_models.dart';
 import '../../features/quiz/screens/quiz_screen.dart';
 import '../../features/recitation/screens/recitation_practice_screen.dart';
@@ -53,6 +62,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final inChildFlow = state.uri.path.startsWith('/child');
       final isAllowedParentRoute =
           state.uri.path == '/parent/dashboard' ||
+          state.uri.path == '/parent/settings' ||
           state.uri.path.startsWith('/parent/child') ||
           state.uri.path.startsWith('/parent/pin/');
 
@@ -159,6 +169,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ParentDashboardScreen(),
       ),
       GoRoute(
+        path: '/parent/settings',
+        builder: (context, state) => const ParentSettingsScreen(),
+      ),
+      GoRoute(
         path: '/parent/child/select',
         builder: (context, state) => const SelectChildScreen(),
       ),
@@ -167,13 +181,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AddChildScreen(),
       ),
       GoRoute(
+        path: '/parent/child/:childId/dashboard',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ParentChildDashboardScreen(childId: childId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/child/:childId/profile',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ParentChildProfileScreen(childId: childId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/child/:childId/control',
+        builder: (context, state) {
+          final childId = state.pathParameters['childId'];
+          if (childId == null || childId.isEmpty) {
+            return const ParentDashboardScreen();
+          }
+          return ParentControlScreen(childId: childId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/child/:childId/control/notifications',
+        builder: (context, state) => const ParentNotificationsScreen(),
+      ),
+      GoRoute(
         path: '/parent/child/:childId/progress',
         builder: (context, state) {
           final childId = state.pathParameters['childId'];
           if (childId == null || childId.isEmpty) {
             return const ParentDashboardScreen();
           }
-          return ChildProgressHomeScreen(childId: childId);
+          return ParentProgressHomeScreen(childId: childId);
         },
       ),
       GoRoute(
@@ -183,7 +231,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           if (childId == null || childId.isEmpty) {
             return const ParentDashboardScreen();
           }
-          return ChildStreakScreen(childId: childId);
+          return ParentStreakScreen(childId: childId);
         },
       ),
       GoRoute(
@@ -193,7 +241,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           if (childId == null || childId.isEmpty) {
             return const ParentDashboardScreen();
           }
-          return ChildReciteTimeScreen(childId: childId);
+          return ParentReciteTimeScreen(childId: childId);
         },
       ),
       GoRoute(
@@ -203,7 +251,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           if (childId == null || childId.isEmpty) {
             return const ParentDashboardScreen();
           }
-          return ChildScoreScreen(childId: childId);
+          return ParentScoreScreen(childId: childId);
         },
       ),
       GoRoute(
