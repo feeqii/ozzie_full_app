@@ -4,330 +4,401 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_extensions.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/cosmic_background.dart';
-import '../../../core/ui/modal_sheet.dart';
-import '../../../core/ui/primary_button.dart';
 import '../../child/providers/child_providers.dart';
+import '../../child/ui/mission_buttons.dart';
+import '../../child/ui/mission_card.dart';
+import '../../child/ui/mission_orbit_icon.dart';
+import '../../child/ui/mission_scaffold.dart';
+import '../../child/ui/mission_speech_bubble.dart';
+import '../../child/ui/mission_top_bar.dart';
+import '../../child/ui/mission_tokens.dart';
+import '../../parent/utils/parent_access_gate.dart';
 import '../models/map_models.dart';
 import '../providers/map_providers.dart';
 
-class PlanetMapScreen extends ConsumerWidget {
+class PlanetMapScreen extends ConsumerStatefulWidget {
   const PlanetMapScreen({super.key, required this.galaxyId});
 
   final int galaxyId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlanetMapScreen> createState() => _PlanetMapScreenState();
+}
+
+class _PlanetMapScreenState extends ConsumerState<PlanetMapScreen> {
+  int? _selectedSurahId;
+  bool _isStarting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final mapAsync = ref.watch(mapStateProvider);
-    final selectedChild = ref.watch(selectedChildProvider);
+    final child = ref.watch(selectedChildProvider);
     final repo = ref.watch(mapRepositoryProvider);
-    final surfaces = context.surfaces;
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: surfaces.canvas,
-      appBar: const AppAppBar(
-        title: 'Planets',
-        variant: AppAppBarVariant.overlay,
-        foregroundColor: Colors.white,
-      ),
-      body: Stack(
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
+    return MissionScaffold(
+      extendToBottom: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const CosmicBackground(parallax: 0),
-          SafeArea(
+          MissionTopBar(
+            child: child,
+            showBack: true,
+            onBack: () => context.pop(),
+            onProgress: () => context.push('/child/progress'),
+            onParentActions: () => openParentRouteWithPin(
+              context: context,
+              ref: ref,
+              nextRoute: '/parent/dashboard',
+            ),
+          ),
+          const SizedBox(height: MissionSpacing.md),
+          Expanded(
             child: mapAsync.when(
-                data: (state) {
-                  if (state == null) {
-                    return Center(
-                      child: Text(
-                        'Select a child to continue.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-                      ),
-                    );
-                  }
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: Text(
+                  'Unable to load this zone.',
+                  style: MissionText.body(colors.textSecondary),
+                ),
+              ),
+              data: (mapState) {
+                final galaxy = _findGalaxy(mapState);
+                if (galaxy == null) {
+                  return Center(
+                    child: Text(
+                      'Galaxy not found.',
+                      style: MissionText.body(colors.textSecondary),
+                    ),
+                  );
+                }
 
-                  GalaxyNode? galaxy;
-                  for (final item in state.galaxies) {
-                    if (item.id == galaxyId) {
-                      galaxy = item;
-                      break;
-                    }
-                  }
-                  if (galaxy == null) {
-                    return Center(
-                      child: Text(
-                        'Galaxy not found.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-                      ),
-                    );
-                  }
+                final surahs = [...galaxy.surahs]
+                  ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
-                  final galaxyNode = galaxy;
-                  final surahs = [...galaxyNode.surahs]..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+                if (surahs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No missions in this zone yet.',
+                      style: MissionText.body(colors.textSecondary),
+                    ),
+                  );
+                }
 
-                  return Column(
+                _selectedSurahId ??= _initialSurahSelection(surahs);
+                if (!surahs.any((surah) => surah.id == _selectedSurahId)) {
+                  _selectedSurahId = _initialSurahSelection(surahs);
+                }
+
+                final selected = surahs.firstWhere(
+                  (surah) => surah.id == _selectedSurahId,
+                );
+
+                final bubbleText = selected.locked
+                    ? '${selected.name} is locked for now. Finish the earlier mission first.'
+                    : selected.isCompleted
+                    ? '${selected.name} is completed. You can revisit it anytime.'
+                    : '${selected.name} is waiting. Start your journey now.';
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: MissionSpacing.xxl),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          AppSpacing.md,
+                      Center(
+                        child: Text(
+                          galaxy.nameEn.toUpperCase(),
+                          style: MissionText.title(
+                            colors.textPrimary,
+                          ).copyWith(fontSize: 20),
                         ),
+                      ),
+                      if ((galaxy.nameAr ?? '').isNotEmpty)
+                        Center(
+                          child: Text(
+                            galaxy.nameAr!,
+                            style: MissionText.body(colors.textSecondary),
+                          ),
+                        ),
+                      const SizedBox(height: MissionSpacing.md),
+                      SizedBox(
+                        height: 330,
+                        child: _SurahOrbit(
+                          surahs: surahs,
+                          selectedSurahId: selected.id,
+                          onSelect: (surahId) =>
+                              setState(() => _selectedSurahId = surahId),
+                        ),
+                      ),
+                      const SizedBox(height: MissionSpacing.sm),
+                      MissionSpeechBubble(text: bubbleText),
+                      const SizedBox(height: MissionSpacing.md),
+                      MissionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              galaxyNode.nameEn.isNotEmpty ? '${galaxyNode.nameEn} Galaxy' : 'Galaxy',
-                              style: Theme.of(context).textTheme.displayLarge?.copyWith(color: Colors.white),
+                              selected.name,
+                              style: MissionText.heading(colors.textPrimary),
                             ),
-                            if ((galaxyNode.nameAr ?? '').isNotEmpty) ...[
-                              const SizedBox(height: AppSpacing.xs),
+                            const SizedBox(height: MissionSpacing.xs),
+                            Text(
+                              selected.translation,
+                              style: MissionText.body(colors.textSecondary),
+                            ),
+                            if (selected.ayahCount != null) ...[
+                              const SizedBox(height: MissionSpacing.sm),
                               Text(
-                                galaxyNode.nameAr!,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                                '${selected.ayahCount} ayahs',
+                                style: MissionText.micro(colors.textSecondary),
                               ),
                             ],
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              state.slotsRemaining == 0
-                                  ? 'No slots left. Complete an active surah to unlock more.'
-                                  : '${state.slotsRemaining} active surah slots available',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
+                            const SizedBox(height: MissionSpacing.md),
+                            MissionButton(
+                              label: selected.locked
+                                  ? 'Locked'
+                                  : selected.isCompleted
+                                  ? 'Review mission'
+                                  : 'Start mission',
+                              onPressed: (selected.locked || _isStarting)
+                                  ? null
+                                  : () async {
+                                      final selectedChild = child;
+                                      if (selectedChild == null) {
+                                        return;
+                                      }
+
+                                      setState(() => _isStarting = true);
+                                      try {
+                                        if (!selected.isActive &&
+                                            !selected.isCompleted) {
+                                          await repo.startSurah(
+                                            childId: selectedChild.id,
+                                            surahId: selected.id,
+                                          );
+                                          ref.invalidate(mapStateProvider);
+                                        }
+                                        if (!context.mounted) {
+                                          return;
+                                        }
+                                        context.push(
+                                          '/child/surah/${selected.id}',
+                                        );
+                                      } finally {
+                                        if (mounted) {
+                                          setState(() => _isStarting = false);
+                                        }
+                                      }
+                                    },
                             ),
                           ],
                         ),
                       ),
-                      Expanded(
-                        child: _PlanetOrbit(
-                          surahs: surahs,
-                          onTap: (surah) async {
-                            if (surah.locked || selectedChild == null) return;
-
-                            if (!surah.isActive && !surah.isCompleted) {
-                              try {
-                                await repo.startSurah(childId: selectedChild.id, surahId: surah.id);
-                                ref.invalidate(mapStateProvider);
-                              } catch (error) {
-                                if (!context.mounted) return;
-                                await ModalSheetTrigger.show(
-                                  context,
-                                  sheet: ModalSheet(
-                                    title: 'Unable to start surah',
-                                    message: '$error',
-                                    variant: ModalSheetVariant.fail,
-                                    primaryAction: PrimaryButton(
-                                      label: 'Okay',
-                                      onPressed: () => context.pop(),
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
-                            }
-
-                            if (!context.mounted) return;
-                            context.push('/child/surah/${surah.id}');
-                          },
-                        ),
-                      ),
                     ],
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => Center(
-                  child: Text(
-                    'Unable to load planets.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
                   ),
-                ),
-              ),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
+
+  GalaxyNode? _findGalaxy(MapState? mapState) {
+    if (mapState == null) {
+      return null;
+    }
+    for (final galaxy in mapState.galaxies) {
+      if (galaxy.id == widget.galaxyId) {
+        return galaxy;
+      }
+    }
+    return null;
+  }
+
+  int _initialSurahSelection(List<SurahNode> surahs) {
+    for (final surah in surahs) {
+      if (surah.isActive) {
+        return surah.id;
+      }
+    }
+    for (final surah in surahs) {
+      if (!surah.locked) {
+        return surah.id;
+      }
+    }
+    return surahs.first.id;
+  }
 }
 
-typedef _PlanetTap = Future<void> Function(SurahNode surah);
-
-class _PlanetOrbit extends StatelessWidget {
-  const _PlanetOrbit({
+class _SurahOrbit extends StatelessWidget {
+  const _SurahOrbit({
     required this.surahs,
-    required this.onTap,
+    required this.selectedSurahId,
+    required this.onSelect,
   });
 
   final List<SurahNode> surahs;
-  final _PlanetTap onTap;
+  final int selectedSurahId;
+  final ValueChanged<int> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final glow = context.surfaces.mapGlow;
-    final fog = context.surfaces.mapFog;
-
-    if (surahs.isEmpty) {
-      return Center(
-        child: Text(
-          'No planets found.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-        ),
-      );
-    }
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final viewportH = constraints.maxHeight;
-
-        // Big, thumb-first planets. We allow scroll so these can stay large.
-        final nodeSize = (w * 0.46).clamp(150.0, 176.0);
-        final labelWidth = math.min(w - AppSpacing.lg, nodeSize * 1.65);
-        final labelHeight = 54.0;
-
-        final gap = nodeSize + 88;
-        final contentH = math.max(
-          viewportH,
-          (surahs.length - 1) * gap + nodeSize + labelHeight + AppSpacing.xl,
+        final center = Offset(
+          constraints.maxWidth / 2,
+          constraints.maxHeight / 2 - 8,
         );
+        final radiusX = constraints.maxWidth * 0.36;
+        final radiusY = constraints.maxHeight * 0.28;
 
-        // Bottom-up reading: easiest/first planet at the bottom.
-        final surahsDisplay = surahs.reversed.toList(growable: false);
-
-        final cx = w / 2;
-        final side = AppSpacing.sm.toDouble();
-        final amplitude = math.max(0.0, (w - labelWidth - side * 2) / 2);
-        final waves = 2.0;
-
-        final points = <Offset>[];
-        for (var i = 0; i < surahsDisplay.length; i++) {
-          final t = surahsDisplay.length == 1 ? 0.5 : (i / (surahsDisplay.length - 1));
-          final x = cx + math.sin(t * math.pi * waves) * amplitude;
-          final y = AppSpacing.md + t * (contentH - nodeSize - labelHeight - AppSpacing.xl);
-          points.add(Offset(x, y));
-        }
-
-        return _PlanetOrbitScroll(
-          contentHeight: contentH,
-          points: points,
-          glow: glow,
-          fog: fog,
-          nodes: [
-            for (var i = 0; i < surahsDisplay.length; i++)
-              _PlanetNodeSpec(
-                surah: surahsDisplay[i],
-                center: points[i],
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _OrbitPainter(
+                  center: center,
+                  radiusX: radiusX,
+                  radiusY: radiusY,
+                  color: colors.line.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+            Positioned(
+              left: center.dx - 54,
+              top: center.dy - 54,
+              child: Container(
+                width: 108,
+                height: 108,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      MissionPalette.blue.withValues(alpha: 0.92),
+                      MissionPalette.green.withValues(alpha: 0.92),
+                    ],
+                  ),
+                  border: Border.all(color: colors.textPrimary, width: 1.2),
+                ),
+                child: const Center(
+                  child: MissionOrbitIcon(
+                    size: 66,
+                    color: MissionPalette.light,
+                  ),
+                ),
+              ),
+            ),
+            for (var i = 0; i < surahs.length; i++)
+              _OrbitNode(
+                surah: surahs[i],
+                index: i,
+                total: surahs.length,
+                selected: surahs[i].id == selectedSurahId,
+                center: center,
+                radiusX: radiusX,
+                radiusY: radiusY,
+                onSelect: onSelect,
               ),
           ],
-          nodeSize: nodeSize,
-          labelWidth: labelWidth,
-          labelHeight: labelHeight,
-          onTap: onTap,
         );
       },
     );
   }
 }
 
-class _PlanetNodeSpec {
-  const _PlanetNodeSpec({
+class _OrbitNode extends StatelessWidget {
+  const _OrbitNode({
     required this.surah,
+    required this.index,
+    required this.total,
+    required this.selected,
     required this.center,
+    required this.radiusX,
+    required this.radiusY,
+    required this.onSelect,
   });
 
   final SurahNode surah;
+  final int index;
+  final int total;
+  final bool selected;
   final Offset center;
-}
-
-class _PlanetOrbitScroll extends StatefulWidget {
-  const _PlanetOrbitScroll({
-    required this.contentHeight,
-    required this.points,
-    required this.glow,
-    required this.fog,
-    required this.nodes,
-    required this.nodeSize,
-    required this.labelWidth,
-    required this.labelHeight,
-    required this.onTap,
-  });
-
-  final double contentHeight;
-  final List<Offset> points;
-  final Color glow;
-  final Color fog;
-  final List<_PlanetNodeSpec> nodes;
-  final double nodeSize;
-  final double labelWidth;
-  final double labelHeight;
-  final _PlanetTap onTap;
-
-  @override
-  State<_PlanetOrbitScroll> createState() => _PlanetOrbitScrollState();
-}
-
-class _PlanetOrbitScrollState extends State<_PlanetOrbitScroll> {
-  late final ScrollController _controller;
-  bool _jumped = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  final double radiusX;
+  final double radiusY;
+  final ValueChanged<int> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    // Always open the map near the "start" (bottom) so kids see the next action first.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _jumped) return;
-      if (!_controller.hasClients) return;
-      _jumped = true;
-      _controller.jumpTo(_controller.position.maxScrollExtent);
-    });
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
 
-    return Scrollbar(
-      controller: _controller,
-      child: SingleChildScrollView(
-        controller: _controller,
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        child: SizedBox(
-          height: widget.contentHeight,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _OrbitPainter(
-                    points: widget.points,
-                    glow: widget.glow,
-                    fog: widget.fog,
-                  ),
+    final theta = total == 1
+        ? 0.0
+        : ((index / total) * (math.pi * 2) - math.pi / 2);
+    final x = center.dx + math.cos(theta) * radiusX;
+    final y = center.dy + math.sin(theta) * radiusY;
+
+    return Positioned(
+      left: x - 24,
+      top: y - 24,
+      child: GestureDetector(
+        onTap: () => onSelect(surah.id),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: selected ? 54 : 48,
+              height: selected ? 54 : 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.surface,
+                border: Border.all(
+                  color: selected
+                      ? colors.textPrimary
+                      : colors.line.withValues(alpha: 0.7),
+                  width: selected ? 1.5 : 1.0,
+                ),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: colors.shadow,
+                          blurRadius: 0,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: MissionOrbitIcon(
+                  size: selected ? 31 : 27,
+                  opacity: surah.locked ? 0.4 : 0.95,
                 ),
               ),
-              for (final node in widget.nodes)
-                Positioned(
-                  left: node.center.dx - widget.labelWidth / 2,
-                  top: node.center.dy - widget.nodeSize / 2,
-                  width: widget.labelWidth,
-                  child: _PlanetNode(
-                    surah: node.surah,
-                    size: widget.nodeSize,
-                    labelWidth: widget.labelWidth,
-                    labelHeight: widget.labelHeight,
-                    onTap: () => widget.onTap(node.surah),
-                  ),
+            ),
+            if (surah.locked)
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.surface,
+                  border: Border.all(color: colors.textPrimary, width: 1),
                 ),
-            ],
-          ),
+                child: Icon(
+                  Icons.lock_outline,
+                  size: 12,
+                  color: colors.textPrimary,
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -335,205 +406,40 @@ class _PlanetOrbitScrollState extends State<_PlanetOrbitScroll> {
 }
 
 class _OrbitPainter extends CustomPainter {
-  _OrbitPainter({
-    required this.points,
-    required this.glow,
-    required this.fog,
+  const _OrbitPainter({
+    required this.center,
+    required this.radiusX,
+    required this.radiusY,
+    required this.color,
   });
 
-  final List<Offset> points;
-  final Color glow;
-  final Color fog;
+  final Offset center;
+  final double radiusX;
+  final double radiusY;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
+    final rect = Rect.fromCenter(
+      center: center,
+      width: radiusX * 2,
+      height: radiusY * 2,
+    );
 
-    final base = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = Colors.white.withValues(alpha: 0.14);
-
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = glow.withValues(alpha: 0.22)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 0; i < points.length - 1; i++) {
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      path.quadraticBezierTo(p1.dx, p1.dy, mid.dx, mid.dy);
-    }
-    path.lineTo(points.last.dx, points.last.dy);
-
-    canvas.drawPath(path, glowPaint);
-    canvas.drawPath(path, base);
+    canvas.drawOval(
+      rect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = color,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _OrbitPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.glow != glow || oldDelegate.fog != fog;
-  }
-}
-
-class _PlanetNode extends StatelessWidget {
-  const _PlanetNode({
-    required this.surah,
-    required this.size,
-    required this.labelWidth,
-    required this.labelHeight,
-    required this.onTap,
-  });
-
-  final SurahNode surah;
-  final double size;
-  final double labelWidth;
-  final double labelHeight;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final glow = context.surfaces.mapGlow;
-
-    final locked = surah.locked;
-    final active = surah.isActive;
-    final completed = surah.isCompleted;
-
-    final label = completed
-        ? 'Completed'
-        : active
-            ? 'Active'
-            : locked
-                ? _reasonLabel(surah.lockReason)
-                : 'Available';
-
-    final title = surah.name.isNotEmpty ? surah.name : 'Surah ${surah.id}';
-
-    return AnimatedOpacity(
-      duration: context.motion.medium,
-      opacity: locked ? 0.55 : 1,
-      child: Column(
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: locked ? null : onTap,
-              customBorder: const CircleBorder(),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (active)
-                    Container(
-                      height: size,
-                      width: size,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: glow.withValues(alpha: 0.30),
-                            blurRadius: 24,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  Container(
-                    height: size,
-                    width: size,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: locked
-                          ? RadialGradient(
-                              colors: [
-                                Colors.white.withValues(alpha: 0.12),
-                                Colors.white.withValues(alpha: 0.05),
-                              ],
-                            )
-                          : RadialGradient(
-                              colors: [
-                                glow.withValues(alpha: completed ? 0.25 : 0.22),
-                                Colors.white.withValues(alpha: 0.10),
-                              ],
-                              stops: const [0, 1],
-                            ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: locked ? 0.14 : 0.22),
-                        width: 1.6,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${surah.orderIndex}',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontSize: (size * 0.15).clamp(20.0, 28.0),
-                          height: 1,
-                        ),
-                  ),
-                  if (locked)
-                    const Positioned(
-                      bottom: 10,
-                      child: Icon(Icons.lock_rounded, color: Colors.white, size: 18),
-                    ),
-                  if (!locked && completed)
-                    Positioned(
-                      bottom: 10,
-                      child: Icon(Icons.verified_rounded, color: glow.withValues(alpha: 0.95), size: 18),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            width: labelWidth,
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    height: 1.08,
-                    fontSize: (size * 0.11).clamp(16.0, 20.0),
-                  ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          SizedBox(
-            width: labelWidth,
-            height: labelHeight,
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    letterSpacing: 0.5,
-                    height: 1.1,
-                  ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _reasonLabel(String? reason) {
-    switch (reason) {
-      case 'NO_SLOTS':
-        return 'No slots';
-      case 'COMING_SOON':
-        return 'Coming soon';
-      case 'GALAXY_LOCKED':
-        return 'Galaxy locked';
-      default:
-        return 'Locked';
-    }
+    return center != oldDelegate.center ||
+        radiusX != oldDelegate.radiusX ||
+        radiusY != oldDelegate.radiusY ||
+        color != oldDelegate.color;
   }
 }

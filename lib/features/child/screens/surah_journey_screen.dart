@@ -1,22 +1,20 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_extensions.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/cosmic_background.dart';
-import '../../../core/ui/atlas_illustrations.dart';
-import '../../../core/ui/illustration_frame.dart';
-import '../../../core/ui/modal_sheet.dart';
-import '../../../core/ui/primary_button.dart';
 import '../../journey/models/journey_models.dart';
 import '../../journey/providers/journey_providers.dart';
+import '../../map/models/map_models.dart';
 import '../../map/providers/map_providers.dart';
+import '../../parent/utils/parent_access_gate.dart';
 import '../providers/child_providers.dart';
+import '../ui/mission_buttons.dart';
+import '../ui/mission_card.dart';
+import '../ui/mission_orbit_icon.dart';
+import '../ui/mission_scaffold.dart';
+import '../ui/mission_status_tag.dart';
+import '../ui/mission_top_bar.dart';
+import '../ui/mission_tokens.dart';
 import 'surah_intro_screen.dart';
 
 class SurahJourneyScreen extends ConsumerWidget {
@@ -30,191 +28,175 @@ class SurahJourneyScreen extends ConsumerWidget {
     final mapAsync = ref.watch(mapStateProvider);
     final stepsAsync = ref.watch(surahJourneyStepsProvider(surahId));
     final repo = ref.watch(mapRepositoryProvider);
-    final surfaces = context.surfaces;
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: surfaces.canvas,
-      appBar: const AppAppBar(
-        title: 'Journey',
-        variant: AppAppBarVariant.overlay,
-        foregroundColor: Colors.white,
-      ),
-      body: Stack(
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
+    return MissionScaffold(
+      extendToBottom: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const CosmicBackground(parallax: 0),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.xl,
+          MissionTopBar(
+            child: child,
+            showBack: true,
+            onBack: () => context.pop(),
+            onProgress: () => context.push('/child/progress'),
+            onParentActions: () => openParentRouteWithPin(
+              context: context,
+              ref: ref,
+              nextRoute: '/parent/dashboard',
+            ),
+          ),
+          const SizedBox(height: MissionSpacing.md),
+          Expanded(
+            child: mapAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: Text(
+                  'Unable to load mission map.',
+                  style: MissionText.body(colors.textSecondary),
+                ),
               ),
-              child: mapAsync.when(
-                data: (mapState) {
-                  final surahNode = mapState?.findSurah(surahId);
-                  final title = surahNode?.name.isNotEmpty == true ? surahNode!.name : 'Surah $surahId';
+              data: (mapState) {
+                final surah = mapState?.findSurah(surahId);
+                if (surah == null) {
+                  return Center(
+                    child: Text(
+                      'Mission not found.',
+                      style: MissionText.body(colors.textSecondary),
+                    ),
+                  );
+                }
 
-                  if (surahNode != null && !surahNode.playable) {
-                    return Center(
-                      child: _GlassPanel(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                title,
-                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                'Content not available yet.',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
-                              PrimaryButton(
-                                label: 'Back',
-                                onPressed: () => context.pop(),
-                              ),
-                            ],
-                          ),
-                        ),
+                return stepsAsync.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => Center(
+                    child: Text(
+                      'Unable to load mission steps.',
+                      style: MissionText.body(colors.textSecondary),
+                    ),
+                  ),
+                  data: (stepsRaw) {
+                    final steps = [...stepsRaw]
+                      ..sort(
+                        (a, b) =>
+                            a.level.orderIndex.compareTo(b.level.orderIndex),
+                      );
+                    final nextStep = _resolveNextStep(steps);
+
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.only(
+                        bottom: MissionSpacing.xxl,
                       ),
-                    );
-                  }
-
-                  return stepsAsync.when(
-                    data: (stepsRaw) {
-                      final steps = [...stepsRaw]..sort((a, b) => a.level.orderIndex.compareTo(b.level.orderIndex));
-                      final allLocked = steps.isNotEmpty && steps.every((step) => step.progress.status == JourneyLevelStatus.locked);
-                      final canStart = child != null && (surahNode?.locked != true);
-
-                      return Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            title,
-                            style: Theme.of(context).textTheme.displayLarge?.copyWith(color: Colors.white),
+                            surah.name,
+                            style: MissionText.heading(colors.textPrimary),
                           ),
-                          const SizedBox(height: AppSpacing.xs),
+                          const SizedBox(height: MissionSpacing.xs),
                           Text(
-                            'Follow the constellation. Master every step.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.84)),
+                            surah.translation,
+                            style: MissionText.body(colors.textSecondary),
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          if (allLocked) ...[
-                            _GlassPanel(
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      'Start this surah',
-                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                          const SizedBox(height: MissionSpacing.sm),
+                          MissionStatusTag(
+                            label: _surahStatusLabel(surah),
+                            icon: Icons.route,
+                          ),
+                          const SizedBox(height: MissionSpacing.lg),
+                          _JourneyTrack(
+                            steps: steps,
+                            onTap: (step) => _openStep(
+                              context: context,
+                              ref: ref,
+                              step: step,
+                            ),
+                          ),
+                          const SizedBox(height: MissionSpacing.lg),
+                          if (nextStep != null)
+                            MissionCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    _cardTitle(nextStep),
+                                    style: MissionText.heading(
+                                      colors.textPrimary,
                                     ),
-                                    const SizedBox(height: AppSpacing.sm),
-                                    Text(
-                                      surahNode?.locked == true
-                                          ? 'No slots available. Complete an active surah to unlock.'
-                                          : 'This unlocks your first level.',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                                  ),
+                                  const SizedBox(height: MissionSpacing.sm),
+                                  Text(
+                                    _cardSubtitle(nextStep),
+                                    style: MissionText.body(
+                                      colors.textSecondary,
                                     ),
-                                    const SizedBox(height: AppSpacing.md),
-                                    PrimaryButton(
-                                      label: 'Begin',
-                                      isDisabled: !canStart,
-                                      onPressed: !canStart
-                                          ? null
-                                          : () async {
-                                              final currentChild = child;
-                                              try {
-                                                await repo.startSurah(childId: currentChild.id, surahId: surahId);
-                                                ref.invalidate(mapStateProvider);
-                                                ref.invalidate(surahJourneyStepsProvider(surahId));
-                                              } catch (error) {
-                                                if (!context.mounted) return;
-                                                await ModalSheetTrigger.show(
-                                                  context,
-                                                  sheet: ModalSheet(
-                                                    title: 'Unable to start surah',
-                                                    message: '$error',
-                                                    variant: ModalSheetVariant.fail,
-                                                    primaryAction: PrimaryButton(
-                                                      label: 'Okay',
-                                                      onPressed: () => context.pop(),
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                            },
+                                  ),
+                                  const SizedBox(height: MissionSpacing.md),
+                                  MissionButton(
+                                    label: nextStep.isLocked
+                                        ? 'Locked'
+                                        : 'Start mission',
+                                    onPressed: nextStep.isLocked
+                                        ? null
+                                        : () => _openStep(
+                                            context: context,
+                                            ref: ref,
+                                            step: nextStep,
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            MissionCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'All steps complete',
+                                    style: MissionText.heading(
+                                      colors.textPrimary,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: MissionSpacing.sm),
+                                  Text(
+                                    'Great work. Revisit any step to practice again.',
+                                    style: MissionText.body(
+                                      colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.lg),
-                          ],
-                          Expanded(
-                            child: _JourneyPathMap(
-                              steps: steps,
-                              onTap: (step) async {
-                                if (step.isLocked) {
-                                  await _showLocked(context, step);
-                                  return;
-                                }
-
-                                switch (step.level.type) {
-                                  case JourneyLevelType.surahIntro:
-                                    await context.push(
-                                      '/child/surah/$surahId/intro/${step.level.id}',
-                                      extra: SurahIntroArgs(surahId: surahId, levelId: step.level.id),
-                                    );
-                                    break;
-                                  case JourneyLevelType.verseLesson:
-                                    final ayahId = step.level.ayahId;
-                                    if (ayahId == null) return;
-                                    await context.push('/child/surah/$surahId/ayah/$ayahId');
-                                    break;
-                                  case JourneyLevelType.checkpoint:
-                                    final quizType = step.level.quizType;
-                                    if (quizType == null) return;
-                                    await context.push('/child/surah/$surahId/quiz/$quizType');
-                                    break;
-                                  case JourneyLevelType.finalExam:
-                                    await context.push('/child/surah/$surahId/quiz/final');
-                                    break;
-                                }
-
-                                ref.invalidate(mapStateProvider);
-                                ref.invalidate(surahJourneyStepsProvider(surahId));
-                              },
+                          if (_allLocked(steps)) ...[
+                            const SizedBox(height: MissionSpacing.md),
+                            MissionButton(
+                              label: surah.locked
+                                  ? 'No slots available'
+                                  : 'Activate mission',
+                              onPressed: surah.locked || child == null
+                                  ? null
+                                  : () async {
+                                      await repo.startSurah(
+                                        childId: child.id,
+                                        surahId: surahId,
+                                      );
+                                      ref.invalidate(mapStateProvider);
+                                      ref.invalidate(
+                                        surahJourneyStepsProvider(surahId),
+                                      );
+                                    },
                             ),
-                          ),
+                          ],
                         ],
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (_, __) => Center(
-                      child: Text(
-                        'Unable to load journey.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
                       ),
-                    ),
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => Center(
-                  child: Text(
-                    'Unable to load map state.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-                  ),
-                ),
-              ),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],
@@ -222,440 +204,279 @@ class SurahJourneyScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showLocked(BuildContext context, JourneyStep step) {
-    final lockedUntil = step.progress.lockedUntil;
-    final message = lockedUntil != null ? 'Try again tomorrow.' : 'Complete the previous step to unlock this.';
-    HapticFeedback.mediumImpact();
-    return ModalSheetTrigger.show(
-      context,
-      sheet: ModalSheet(
-        title: 'Locked',
-        message: message,
-        variant: ModalSheetVariant.info,
-        illustration: const IllustrationFrame(
-          size: 150,
-          child: AtlasIllustration(kind: AtlasIllustrationKind.locked),
-        ),
-        primaryAction: PrimaryButton(
-          label: 'Okay',
-          onPressed: () => context.pop(),
-        ),
-      ),
-    );
-  }
-}
-
-class _JourneyPathMap extends StatelessWidget {
-  const _JourneyPathMap({
-    required this.steps,
-    required this.onTap,
-  });
-
-  final List<JourneyStep> steps;
-  final Future<void> Function(JourneyStep step) onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (steps.isEmpty) {
-      return Center(
-        child: Text(
-          'No steps yet.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-        ),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        // Big, thumb-first nodes. We allow scroll, so they can stay large.
-        final nodeSize = (w * 0.46).clamp(150.0, 176.0);
-        final gap = nodeSize + 98;
-        final labelWidth = math.min(w - AppSpacing.lg, nodeSize * 1.45);
-        final labelHeight = 56.0;
-
-        // Bottom-up journey: early steps live near the bottom so the next action
-        // is immediately visible.
-        final top = nodeSize * 0.5;
-        final height = top + (steps.length - 1) * gap + nodeSize + labelHeight + AppSpacing.xl;
-
-        final cx = w / 2;
-        final maxAmp = math.max(0.0, (w - labelWidth) / 2 - AppSpacing.sm);
-        final amplitude = math.min(w * 0.26, maxAmp);
-        final waves = 2.0;
-
-        final points = <Offset>[];
-        for (var i = 0; i < steps.length; i++) {
-          final t = steps.length == 1 ? 0.5 : (i / (steps.length - 1));
-          final x = cx + math.sin(t * math.pi * waves) * amplitude;
-          // Invert y so step 0 is near the bottom.
-          final y = top + (steps.length - 1 - i) * gap;
-          points.add(Offset(x, y));
-        }
-
-        final unlockedUntil = _furthestUnlockedIndex(steps);
-        return _JourneyScrollMap(
-          height: math.max(constraints.maxHeight, height),
-          nodeSize: nodeSize,
-          labelWidth: labelWidth,
-          labelHeight: labelHeight,
-          points: points,
-          steps: steps,
-          unlockedUntil: unlockedUntil,
-          onTap: onTap,
-        );
-      },
-    );
-  }
-
-  int _furthestUnlockedIndex(List<JourneyStep> steps) {
-    var furthest = -1;
-    for (var i = 0; i < steps.length; i++) {
-      if (steps[i].isUnlocked || steps[i].isCompleted) {
-        furthest = i;
-      }
-    }
-    return furthest;
-  }
-}
-
-class _JourneyScrollMap extends StatefulWidget {
-  const _JourneyScrollMap({
-    required this.height,
-    required this.nodeSize,
-    required this.labelWidth,
-    required this.labelHeight,
-    required this.points,
-    required this.steps,
-    required this.unlockedUntil,
-    required this.onTap,
-  });
-
-  final double height;
-  final double nodeSize;
-  final double labelWidth;
-  final double labelHeight;
-  final List<Offset> points;
-  final List<JourneyStep> steps;
-  final int unlockedUntil;
-  final Future<void> Function(JourneyStep step) onTap;
-
-  @override
-  State<_JourneyScrollMap> createState() => _JourneyScrollMapState();
-}
-
-class _JourneyScrollMapState extends State<_JourneyScrollMap> {
-  late final ScrollController _controller;
-  bool _jumped = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Start at the bottom so the "begin/next" step is in thumb reach.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _jumped) return;
-      if (!_controller.hasClients) return;
-      _jumped = true;
-      _controller.jumpTo(_controller.position.maxScrollExtent);
-    });
-
-    return Scrollbar(
-      controller: _controller,
-      child: SingleChildScrollView(
-        controller: _controller,
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        child: SizedBox(
-          height: widget.height,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _JourneyPathPainter(
-                    points: widget.points,
-                    unlockedUntil: widget.unlockedUntil,
-                    glow: context.surfaces.mapGlow,
-                  ),
-                ),
-              ),
-              for (var i = 0; i < widget.steps.length; i++)
-                Positioned(
-                  left: widget.points[i].dx - widget.labelWidth / 2,
-                  top: widget.points[i].dy - widget.nodeSize / 2,
-                  width: widget.labelWidth,
-                  child: _JourneyNode(
-                    step: widget.steps[i],
-                    size: widget.nodeSize,
-                    labelWidth: widget.labelWidth,
-                    labelHeight: widget.labelHeight,
-                    onTap: () => widget.onTap(widget.steps[i]),
-                  ),
-                ),
-            ],
+  static Future<void> _openStep({
+    required BuildContext context,
+    required WidgetRef ref,
+    required JourneyStep step,
+  }) async {
+    if (step.isLocked) {
+      final colors = MissionColors.resolve(Theme.of(context).brightness);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Complete earlier steps to unlock this mission.',
+            style: MissionText.body(colors.primaryText),
           ),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    switch (step.level.type) {
+      case JourneyLevelType.surahIntro:
+        await context.push(
+          '/child/surah/${step.level.surahId}/intro/${step.level.id}',
+          extra: SurahIntroArgs(
+            surahId: step.level.surahId,
+            levelId: step.level.id,
+          ),
+        );
+        break;
+      case JourneyLevelType.verseLesson:
+        final ayahId = step.level.ayahId;
+        if (ayahId == null) {
+          return;
+        }
+        await context.push('/child/surah/${step.level.surahId}/ayah/$ayahId');
+        break;
+      case JourneyLevelType.checkpoint:
+        final quizType = step.level.quizType;
+        if (quizType == null) {
+          return;
+        }
+        await context.push('/child/surah/${step.level.surahId}/quiz/$quizType');
+        break;
+      case JourneyLevelType.finalExam:
+        await context.push('/child/surah/${step.level.surahId}/quiz/final');
+        break;
+    }
+
+    ref.invalidate(mapStateProvider);
+    ref.invalidate(surahJourneyStepsProvider(step.level.surahId));
+  }
+
+  static JourneyStep? _resolveNextStep(List<JourneyStep> steps) {
+    for (final step in steps) {
+      if (step.isUnlocked && !step.isCompleted) {
+        return step;
+      }
+    }
+    for (final step in steps) {
+      if (step.isLocked) {
+        return step;
+      }
+    }
+    return steps.isEmpty ? null : steps.last;
+  }
+
+  static bool _allLocked(List<JourneyStep> steps) {
+    return steps.isNotEmpty && steps.every((step) => step.isLocked);
+  }
+
+  static String _surahStatusLabel(SurahNode surah) {
+    if (surah.locked) {
+      return 'Locked';
+    }
+    if (surah.isCompleted) {
+      return 'Completed';
+    }
+    if (surah.isActive) {
+      return 'In progress';
+    }
+    return 'Available';
+  }
+
+  static String _cardTitle(JourneyStep step) {
+    switch (step.level.type) {
+      case JourneyLevelType.surahIntro:
+        return 'Learn the mission';
+      case JourneyLevelType.verseLesson:
+        final ayah = step.level.ayahId;
+        return ayah == null ? 'Verse lesson' : 'Verse $ayah';
+      case JourneyLevelType.checkpoint:
+        return 'Memorize checkpoint';
+      case JourneyLevelType.finalExam:
+        return 'Final challenge';
+    }
+  }
+
+  static String _cardSubtitle(JourneyStep step) {
+    switch (step.level.type) {
+      case JourneyLevelType.surahIntro:
+        return 'Start with context and goals before the verses.';
+      case JourneyLevelType.verseLesson:
+        return 'Practice reading and reciting this verse with confidence.';
+      case JourneyLevelType.checkpoint:
+        return 'Review what you learned before unlocking the next step.';
+      case JourneyLevelType.finalExam:
+        return 'Show mastery and complete this surah mission.';
+    }
   }
 }
 
-class _JourneyPathPainter extends CustomPainter {
-  _JourneyPathPainter({
-    required this.points,
-    required this.unlockedUntil,
-    required this.glow,
-  });
+class _JourneyTrack extends StatelessWidget {
+  const _JourneyTrack({required this.steps, required this.onTap});
 
-  final List<Offset> points;
-  final int unlockedUntil;
-  final Color glow;
+  final List<JourneyStep> steps;
+  final ValueChanged<JourneyStep> onTap;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
+  Widget build(BuildContext context) {
+    final displaySteps = steps.reversed.toList();
 
-    final dimPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..color = Colors.white.withValues(alpha: 0.14);
-
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.4
-      ..color = glow.withValues(alpha: 0.22)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 0; i < points.length - 1; i++) {
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      path.quadraticBezierTo(p1.dx, p1.dy, mid.dx, mid.dy);
-    }
-    path.lineTo(points.last.dx, points.last.dy);
-
-    canvas.drawPath(path, glowPaint);
-    canvas.drawPath(path, dimPaint);
-
-    if (unlockedUntil < 0) return;
-
-    final brightPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.4
-      ..color = glow.withValues(alpha: 0.45)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-
-    final bright = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 0; i < math.min(unlockedUntil, points.length - 1); i++) {
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      bright.quadraticBezierTo(p1.dx, p1.dy, mid.dx, mid.dy);
-    }
-    canvas.drawPath(bright, brightPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _JourneyPathPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.unlockedUntil != unlockedUntil || oldDelegate.glow != glow;
+    return Column(
+      children: [
+        for (var i = 0; i < displaySteps.length; i++) ...[
+          _JourneyNode(
+            step: displaySteps[i],
+            alignRight: i.isOdd,
+            onTap: () => onTap(displaySteps[i]),
+          ),
+          if (i != displaySteps.length - 1) _Connector(alignRight: i.isOdd),
+        ],
+      ],
+    );
   }
 }
 
 class _JourneyNode extends StatelessWidget {
   const _JourneyNode({
     required this.step,
-    required this.size,
-    required this.labelWidth,
-    required this.labelHeight,
+    required this.alignRight,
     required this.onTap,
   });
 
   final JourneyStep step;
-  final double size;
-  final double labelWidth;
-  final double labelHeight;
+  final bool alignRight;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final glow = context.surfaces.mapGlow;
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
     final locked = step.isLocked;
     final completed = step.isCompleted;
 
-    final label = _label(step.level);
-    final status = _status(step.progress.status);
+    final badgeLabel = switch (step.level.type) {
+      JourneyLevelType.checkpoint => 'MEMORIZE',
+      JourneyLevelType.finalExam => 'MASTER',
+      _ => null,
+    };
 
-    final icon = _icon(step.level);
-
-    return AnimatedOpacity(
-      duration: context.motion.medium,
-      opacity: locked ? 0.55 : 1,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: locked ? null : onTap,
-              customBorder: const CircleBorder(),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (!locked)
-                    Container(
-                      height: size,
-                      width: size,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: glow.withValues(alpha: completed ? 0.35 : 0.22),
-                            blurRadius: 26,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  Container(
-                    height: size,
-                    width: size,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: locked ? 0.10 : 0.14),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: locked ? 0.12 : 0.22),
-                        width: 1.6,
-                      ),
-                    ),
-                  ),
-                  Icon(icon, color: Colors.white, size: (size * 0.18).clamp(26.0, 34.0)),
-                  if (locked)
-                    const Positioned(
-                      bottom: 10,
-                      child: Icon(Icons.lock_rounded, color: Colors.white, size: 18),
-                    ),
-                  if (!locked && completed)
-                    Positioned(
-                      bottom: 10,
-                      child: Icon(Icons.verified_rounded, color: glow.withValues(alpha: 0.95), size: 18),
-                    ),
-                ],
+    return Align(
+      alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
+      child: SizedBox(
+        width: 230,
+        child: Column(
+          crossAxisAlignment: alignRight
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            if (badgeLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: MissionSpacing.xs),
+                child: MissionStatusTag(
+                  label: badgeLabel,
+                  icon: Icons.military_tech_outlined,
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            width: labelWidth,
-            child: _GlassPanel(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                width: 74,
+                height: 74,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.surface,
+                  border: Border.all(color: colors.textPrimary, width: 1.1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow,
+                      blurRadius: 0,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    SizedBox(
-                      height: labelHeight - 30,
-                      child: Text(
-                        status,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.78),
-                              letterSpacing: 0.5,
-                              height: 1.1,
-                            ),
+                    MissionOrbitIcon(size: 48, opacity: locked ? 0.35 : 1),
+                    if (locked)
+                      Icon(Icons.lock, size: 20, color: colors.textPrimary)
+                    else if (completed)
+                      Icon(
+                        Icons.check_circle,
+                        size: 20,
+                        color: MissionPalette.green,
                       ),
-                    ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
-
-  IconData _icon(JourneyLevel level) {
-    switch (level.type) {
-      case JourneyLevelType.surahIntro:
-        return Icons.menu_book_rounded;
-      case JourneyLevelType.verseLesson:
-        return Icons.auto_stories_rounded;
-      case JourneyLevelType.checkpoint:
-        return Icons.flash_on_rounded;
-      case JourneyLevelType.finalExam:
-        return Icons.military_tech_rounded;
-    }
-  }
-
-  String _label(JourneyLevel level) {
-    switch (level.type) {
-      case JourneyLevelType.surahIntro:
-        return 'INTRO';
-      case JourneyLevelType.verseLesson:
-        return level.ayahId == null ? 'VERSE' : 'VERSE ${level.ayahId}';
-      case JourneyLevelType.checkpoint:
-        return level.quizType == 'mini_1'
-            ? 'MEMORIZE I'
-            : level.quizType == 'mini_2'
-                ? 'MEMORIZE II'
-                : 'CHECKPOINT';
-      case JourneyLevelType.finalExam:
-        return 'MASTER';
-    }
-  }
-
-  String _status(JourneyLevelStatus status) {
-    switch (status) {
-      case JourneyLevelStatus.locked:
-        return 'Locked';
-      case JourneyLevelStatus.unlocked:
-        return 'Unlocked';
-      case JourneyLevelStatus.inProgress:
-        return 'In progress';
-      case JourneyLevelStatus.completed:
-        return 'Completed';
-    }
   }
 }
 
-class _GlassPanel extends StatelessWidget {
-  const _GlassPanel({required this.child});
+class _Connector extends StatelessWidget {
+  const _Connector({required this.alignRight});
 
-  final Widget child;
+  final bool alignRight;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1.4),
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
+    return Align(
+      alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
+      child: SizedBox(
+        width: 230,
+        height: 44,
+        child: CustomPaint(
+          painter: _ConnectorPainter(
+            color: colors.textPrimary,
+            alignRight: alignRight,
+          ),
+        ),
       ),
-      child: child,
     );
+  }
+}
+
+class _ConnectorPainter extends CustomPainter {
+  const _ConnectorPainter({required this.color, required this.alignRight});
+
+  final Color color;
+  final bool alignRight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = color;
+
+    final startX = alignRight ? size.width - 62 : 62.0;
+    final endX = alignRight ? 72.0 : size.width - 72;
+
+    final path = Path()
+      ..moveTo(startX, 0)
+      ..cubicTo(
+        alignRight ? size.width - 2 : 2,
+        size.height * 0.32,
+        alignRight ? size.width * 0.55 : size.width * 0.45,
+        size.height * 0.7,
+        endX,
+        size.height,
+      );
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConnectorPainter oldDelegate) {
+    return color != oldDelegate.color || alignRight != oldDelegate.alignRight;
   }
 }

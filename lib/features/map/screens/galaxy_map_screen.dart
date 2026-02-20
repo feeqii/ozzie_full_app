@@ -1,16 +1,17 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_extensions.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/cosmic_background.dart';
-import '../../../core/ui/label_chip.dart';
-import '../../../core/ui/primary_button.dart';
-import '../../map/models/map_models.dart';
+import '../../child/providers/child_providers.dart';
+import '../../child/ui/mission_buttons.dart';
+import '../../child/ui/mission_orbit_icon.dart';
+import '../../child/ui/mission_scaffold.dart';
+import '../../child/ui/mission_speech_bubble.dart';
+import '../../child/ui/mission_status_tag.dart';
+import '../../child/ui/mission_top_bar.dart';
+import '../../child/ui/mission_tokens.dart';
+import '../../parent/utils/parent_access_gate.dart';
+import '../models/map_models.dart';
 import '../providers/map_providers.dart';
 
 class GalaxyMapScreen extends ConsumerStatefulWidget {
@@ -21,298 +22,176 @@ class GalaxyMapScreen extends ConsumerStatefulWidget {
 }
 
 class _GalaxyMapScreenState extends ConsumerState<GalaxyMapScreen> {
-  late final PageController _pageController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: 0.86);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     final mapAsync = ref.watch(mapStateProvider);
-    final surfaces = context.surfaces;
+    final child = ref.watch(selectedChildProvider);
 
-    return AnimatedBuilder(
-      animation: _pageController,
-      builder: (context, _) {
-        final page = (_pageController.hasClients
-            ? (_pageController.page ?? _pageController.initialPage.toDouble())
-            : 0.0);
-        final parallax = -page * 34;
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
 
-        return Scaffold(
-          extendBodyBehindAppBar: true,
-          backgroundColor: surfaces.canvas,
-          appBar: const AppAppBar(
-            title: 'Galaxies',
-            variant: AppAppBarVariant.overlay,
-            foregroundColor: Colors.white,
+    return MissionScaffold(
+      extendToBottom: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MissionTopBar(
+            child: child,
+            onProgress: () => context.push('/child/progress'),
+            onParentActions: () => openParentRouteWithPin(
+              context: context,
+              ref: ref,
+              nextRoute: '/parent/dashboard',
+            ),
           ),
-          body: Stack(
-            children: [
-              CosmicBackground(parallax: parallax),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                    AppSpacing.xl,
-                  ),
-                  child: mapAsync.when(
-                    data: (state) {
-                      if (state == null) {
-                        return Center(
-                          child: Text(
-                            'Select a child to continue.',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-                          ),
-                        );
-                      }
+          const SizedBox(height: MissionSpacing.md),
+          Expanded(
+            child: mapAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: Text(
+                  'Unable to load map right now.',
+                  style: MissionText.body(colors.textSecondary),
+                ),
+              ),
+              data: (mapState) {
+                if (mapState == null || mapState.galaxies.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No galaxy map available yet.',
+                      style: MissionText.body(colors.textSecondary),
+                    ),
+                  );
+                }
 
-                      final galaxies = [...state.galaxies]..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
-                      if (galaxies.isEmpty) {
-                        return Center(
-                          child: Text(
-                            'No galaxies available.',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-                          ),
-                        );
-                      }
+                final galaxies = [...mapState.galaxies]
+                  ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Wrap(
-                            spacing: AppSpacing.sm,
-                            runSpacing: AppSpacing.sm,
+                if (_selectedIndex >= galaxies.length) {
+                  _selectedIndex = galaxies.length - 1;
+                }
+
+                final selected = galaxies[_selectedIndex];
+                final subtitle = selected.unlocked
+                    ? selected.completed
+                          ? 'Completed zone. You can revisit any surah.'
+                          : 'Zone unlocked. Tap to continue your journey.'
+                    : 'This zone is locked until the previous one is complete.';
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: MissionSpacing.xxl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      MissionSpeechBubble(
+                        text: selected.unlocked
+                            ? '${selected.nameEn} is ready. Pick a route and keep going.'
+                            : '${selected.nameEn} is still locked. Complete earlier missions first.',
+                      ),
+                      const SizedBox(height: MissionSpacing.md),
+                      Center(
+                        child: GestureDetector(
+                          onTap: selected.unlocked
+                              ? () => context.push(
+                                  '/child/map/galaxy/${selected.id}',
+                                )
+                              : null,
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
-                              LabelChip(
-                                label: '${state.slotsRemaining} slots left',
-                                background: Colors.white.withValues(alpha: 0.12),
-                                borderColor: Colors.white.withValues(alpha: 0.18),
-                                foregroundColor: Colors.white,
+                              Container(
+                                width: 180,
+                                height: 180,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: colors.surface,
+                                  border: Border.all(
+                                    color: colors.line.withValues(alpha: 0.4),
+                                    width: 1.2,
+                                  ),
+                                ),
                               ),
-                              LabelChip(
-                                label: 'Swipe to explore',
-                                background: Colors.white.withValues(alpha: 0.12),
-                                borderColor: Colors.white.withValues(alpha: 0.18),
-                                foregroundColor: Colors.white,
+                              MissionOrbitIcon(
+                                size: 136,
+                                opacity: selected.unlocked ? 1 : 0.45,
                               ),
+                              if (!selected.unlocked)
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: colors.surface,
+                                    border: Border.all(
+                                      color: colors.textPrimary,
+                                      width: 1.1,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.lock_rounded,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          Expanded(
-                            child: PageView.builder(
-                              controller: _pageController,
-                              itemCount: galaxies.length,
-                              itemBuilder: (context, index) {
-                                final galaxy = galaxies[index];
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                                  child: _GalaxyMedallion(
-                                    galaxy: galaxy,
-                                    slotsRemaining: state.slotsRemaining,
-                                    onEnter: galaxy.unlocked ? () => context.push('/child/map/galaxy/${galaxy.id}') : null,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (_, __) => Center(
-                      child: Text(
-                        'Unable to load map.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _GalaxyMedallion extends StatelessWidget {
-  const _GalaxyMedallion({
-    required this.galaxy,
-    required this.slotsRemaining,
-    required this.onEnter,
-  });
-
-  final GalaxyNode galaxy;
-  final int slotsRemaining;
-  final VoidCallback? onEnter;
-
-  @override
-  Widget build(BuildContext context) {
-    final surfaces = context.surfaces;
-    final isLocked = !galaxy.unlocked;
-    final isCompleted = galaxy.completed;
-
-    final title = galaxy.nameEn.isNotEmpty ? galaxy.nameEn : 'Galaxy ${galaxy.orderIndex}';
-
-    return AnimatedOpacity(
-      duration: context.motion.medium,
-      opacity: isLocked ? 0.55 : 1,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.20),
-            width: 1.6,
-          ),
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        _Badge(
-                          label: 'GALAXY ${galaxy.orderIndex}',
-                          glow: isLocked ? null : surfaces.mapGlow,
-                        ),
-                        const Spacer(),
-                        if (isCompleted)
-                          _Badge(
-                            label: 'STAMPED',
-                            glow: surfaces.mapGlow,
-                            icon: Icons.verified_rounded,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: _GalaxyCoin(
-                          index: galaxy.orderIndex,
-                          locked: isLocked,
-                          completed: isCompleted,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            color: Colors.white,
-                            height: 1.0,
+                      const SizedBox(height: MissionSpacing.md),
+                      Center(
+                        child: Text(
+                          selected.nameEn.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: MissionText.title(
+                            colors.textPrimary,
+                          ).copyWith(fontSize: 20),
+                        ),
+                      ),
+                      if ((selected.nameAr ?? '').isNotEmpty)
+                        Center(
+                          child: Text(
+                            selected.nameAr!,
+                            style: MissionText.body(colors.textSecondary),
                           ),
-                    ),
-                    if ((galaxy.nameAr ?? '').isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xs),
+                        ),
+                      const SizedBox(height: MissionSpacing.sm),
+                      Center(
+                        child: MissionStatusTag(
+                          label: mapState.slotsRemaining > 0
+                              ? '${mapState.slotsRemaining} active slots left'
+                              : 'No free active slots',
+                          icon: Icons.auto_awesome,
+                        ),
+                      ),
+                      const SizedBox(height: MissionSpacing.md),
                       Text(
-                        galaxy.nameAr!,
+                        subtitle,
                         textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                        style: MissionText.body(colors.textSecondary),
+                      ),
+                      const SizedBox(height: MissionSpacing.lg),
+                      _GalaxySelectorRow(
+                        galaxies: galaxies,
+                        selectedIndex: _selectedIndex,
+                        onSelect: (index) =>
+                            setState(() => _selectedIndex = index),
+                      ),
+                      const SizedBox(height: MissionSpacing.xl),
+                      MissionButton(
+                        label: selected.unlocked
+                            ? 'Enter ${selected.nameEn}'
+                            : 'Zone locked',
+                        onPressed: selected.unlocked
+                            ? () => context.push(
+                                '/child/map/galaxy/${selected.id}',
+                              )
+                            : null,
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      isLocked
-                          ? 'Locked. Complete the previous galaxy to unlock.'
-                          : isCompleted
-                              ? 'Completed. You can revisit any planet.'
-                              : 'Unlocked. Choose a planet to begin.',
-                      textAlign: TextAlign.center,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.82),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(
-              label: isLocked ? 'Locked' : 'Enter galaxy',
-              isDisabled: isLocked,
-              onPressed: onEnter,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.label,
-    this.icon,
-    this.glow,
-  });
-
-  final String label;
-  final IconData? icon;
-  final Color? glow;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.2),
-        boxShadow: glow == null
-            ? const []
-            : [
-                BoxShadow(
-                  color: glow!.withValues(alpha: 0.22),
-                  blurRadius: 16,
-                  spreadRadius: 1,
-                ),
-              ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 16),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.90),
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.7,
-                ),
           ),
         ],
       ),
@@ -320,83 +199,80 @@ class _Badge extends StatelessWidget {
   }
 }
 
-class _GalaxyCoin extends StatelessWidget {
-  const _GalaxyCoin({
-    required this.index,
-    required this.locked,
-    required this.completed,
+class _GalaxySelectorRow extends StatelessWidget {
+  const _GalaxySelectorRow({
+    required this.galaxies,
+    required this.selectedIndex,
+    required this.onSelect,
   });
 
-  final int index;
-  final bool locked;
-  final bool completed;
+  final List<GalaxyNode> galaxies;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final glow = context.surfaces.mapGlow;
-    final size = 220.0;
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
+    final start = (selectedIndex - 1).clamp(0, galaxies.length - 1);
+    final end = (start + 2).clamp(0, galaxies.length - 1);
+    final visible = [for (var i = start; i <= end; i++) i];
 
     return Stack(
-      alignment: Alignment.center,
+      alignment: Alignment.topCenter,
       children: [
-        Container(
-          height: size,
-          width: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.white.withValues(alpha: locked ? 0.12 : 0.18),
-                Colors.white.withValues(alpha: locked ? 0.05 : 0.10),
-                Colors.transparent,
-              ],
-              stops: const [0, 0.65, 1],
-            ),
+        Positioned(
+          top: 40,
+          left: 24,
+          right: 24,
+          child: Container(
+            height: 1.1,
+            color: colors.line.withValues(alpha: 0.6),
           ),
         ),
-        Container(
-          height: size * 0.86,
-          width: size * 0.86,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: SweepGradient(
-              colors: [
-                glow.withValues(alpha: locked ? 0.12 : 0.36),
-                Colors.white.withValues(alpha: locked ? 0.05 : 0.12),
-                glow.withValues(alpha: locked ? 0.12 : 0.36),
-              ],
-              stops: const [0, 0.5, 1],
-              transform: GradientRotation(index * math.pi / 6),
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: locked ? 0.12 : 0.22),
-              width: 1.6,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              '$index',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: Colors.white,
-                    fontSize: 72,
-                    letterSpacing: -1,
-                    height: 1,
+        Row(
+          children: [
+            for (final index in visible)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onSelect(index),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: index == selectedIndex ? 84 : 70,
+                        height: index == selectedIndex ? 84 : 70,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.surface,
+                          border: Border.all(
+                            color: index == selectedIndex
+                                ? colors.textPrimary
+                                : colors.line,
+                            width: index == selectedIndex ? 1.4 : 1.0,
+                          ),
+                        ),
+                        child: Center(
+                          child: MissionOrbitIcon(
+                            size: index == selectedIndex ? 52 : 42,
+                            opacity: galaxies[index].unlocked ? 1 : 0.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: MissionSpacing.xs),
+                      Text(
+                        galaxies[index].nameEn.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        textScaler: const TextScaler.linear(1),
+                        style: MissionText.micro(colors.textSecondary),
+                      ),
+                    ],
                   ),
-            ),
-          ),
+                ),
+              ),
+          ],
         ),
-        if (locked)
-          const Icon(
-            Icons.lock_rounded,
-            color: Colors.white,
-            size: 34,
-          ),
-        if (!locked && completed)
-          Icon(
-            Icons.verified_rounded,
-            color: glow.withValues(alpha: 0.95),
-            size: 34,
-          ),
       ],
     );
   }

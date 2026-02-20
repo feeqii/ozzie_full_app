@@ -42,18 +42,28 @@ class _FakeMapRepository implements MapRepository {
   }
 
   @override
-  Future<void> startSurah({required String childId, required int surahId}) async {}
+  Future<void> startSurah({
+    required String childId,
+    required int surahId,
+  }) async {}
 
   @override
-  Future<void> completeLevel({required String childId, required String levelId}) async {}
+  Future<void> completeLevel({
+    required String childId,
+    required String levelId,
+  }) async {}
 }
 
 class _FakePracticeSessionRepository implements PracticeSessionRepository {
   @override
-  Future<String> startSession({required String childId}) async => 'test_session';
+  Future<String> startSession({required String childId}) async =>
+      'test_session';
 
   @override
-  Future<void> endSession({required String childId, required String sessionId}) async {}
+  Future<void> endSession({
+    required String childId,
+    required String sessionId,
+  }) async {}
 }
 
 class _FakeRecitationRepository implements RecitationRepository {
@@ -63,7 +73,10 @@ class _FakeRecitationRepository implements RecitationRepository {
   }
 
   @override
-  Future<String> uploadRecitation({required String localPath, required String storagePath}) async {
+  Future<String> uploadRecitation({
+    required String localPath,
+    required String storagePath,
+  }) async {
     return storagePath;
   }
 
@@ -75,16 +88,16 @@ class _FakeRecitationRepository implements RecitationRepository {
     required String audioPath,
     Map<String, dynamic>? meta,
   }) async {
-    return <String, dynamic>{
-      'passed': true,
-      'score': 100,
-    };
+    return <String, dynamic>{'passed': true, 'score': 100};
   }
 }
 
 class _FakeQuizRepository implements QuizRepository {
   @override
-  Future<SurahProgress?> fetchSurahProgress({required String childId, required int surahId}) async => null;
+  Future<SurahProgress?> fetchSurahProgress({
+    required String childId,
+    required int surahId,
+  }) async => null;
 
   @override
   Future<Map<String, dynamic>> submitQuiz({
@@ -93,10 +106,7 @@ class _FakeQuizRepository implements QuizRepository {
     required QuizType quizType,
     required List<QuizAnswerItem> answers,
   }) async {
-    return <String, dynamic>{
-      'score': 100,
-      'passed': true,
-    };
+    return <String, dynamic>{'score': 100, 'passed': true};
   }
 }
 
@@ -107,7 +117,10 @@ class _FakeQuizRecitationRepository implements QuizRecitationRepository {
   }
 
   @override
-  Future<String> uploadRecitation({required String localPath, required String storagePath}) async => storagePath;
+  Future<String> uploadRecitation({
+    required String localPath,
+    required String storagePath,
+  }) async => storagePath;
 
   @override
   Future<Map<String, dynamic>> submitLevelRecitation({
@@ -117,10 +130,7 @@ class _FakeQuizRecitationRepository implements QuizRecitationRepository {
     required String audioPath,
     Map<String, dynamic>? meta,
   }) async {
-    return <String, dynamic>{
-      'score': 100,
-      'passed': true,
-    };
+    return <String, dynamic>{'score': 100, 'passed': true};
   }
 }
 
@@ -182,77 +192,73 @@ Future<void> _pumpAndExpectNoException(
 }
 
 void main() {
-  const permissionChannel = MethodChannel('flutter.baseflow.com/permissions/methods');
+  const permissionChannel = MethodChannel(
+    'flutter.baseflow.com/permissions/methods',
+  );
   const recordChannel = MethodChannel('com.llfbandit.record/messages');
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
 
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      permissionChannel,
-      (call) async {
-        switch (call.method) {
-          case 'checkPermissionStatus':
-            return 1; // granted
-          case 'requestPermissions':
-            final args = call.arguments;
-            if (args is List) {
-              return <int, int>{for (final p in args) p as int: 1};
-            }
-            return <int, int>{};
-          case 'checkServiceStatus':
-            return 1; // enabled
-          case 'shouldShowRequestPermissionRationale':
-            return false;
-          case 'openAppSettings':
-            return true;
-          default:
-            return null;
-        }
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(permissionChannel, (call) async {
+          switch (call.method) {
+            case 'checkPermissionStatus':
+              return 1; // granted
+            case 'requestPermissions':
+              final args = call.arguments;
+              if (args is List) {
+                return <int, int>{for (final p in args) p as int: 1};
+              }
+              return <int, int>{};
+            case 'checkServiceStatus':
+              return 1; // enabled
+            case 'shouldShowRequestPermissionRationale':
+              return false;
+            case 'openAppSettings':
+              return true;
+            default:
+              return null;
+          }
+        });
 
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      recordChannel,
-      (call) async {
-        switch (call.method) {
-          case 'create':
-          case 'dispose':
-          case 'cancel':
-          case 'start':
-          case 'pause':
-          case 'resume':
-            return null;
-          case 'stop':
-            return null;
-          case 'hasPermission':
-            return true;
-          case 'isPaused':
-          case 'isRecording':
-            return false;
-          case 'getAmplitude':
-            return <String, dynamic>{'current': 0.0, 'max': 0.0};
-          case 'isEncoderSupported':
-            return true;
-          case 'listInputDevices':
-            return <dynamic>[];
-          default:
-            return null;
-        }
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(recordChannel, (call) async {
+          switch (call.method) {
+            case 'create':
+            case 'dispose':
+            case 'cancel':
+            case 'start':
+            case 'pause':
+            case 'resume':
+              return null;
+            case 'stop':
+              return null;
+            case 'hasPermission':
+              return true;
+            case 'isPaused':
+            case 'isRecording':
+              return false;
+            case 'getAmplitude':
+              return <String, dynamic>{'current': 0.0, 'max': 0.0};
+            case 'isEncoderSupported':
+              return true;
+            case 'listInputDevices':
+              return <dynamic>[];
+            default:
+              return null;
+          }
+        });
   });
 
   tearDownAll(() async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(permissionChannel, null);
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(recordChannel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(permissionChannel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(recordChannel, null);
   });
 
-  final child = ChildProfile(
-    id: 'child1',
-    parentId: 'parent1',
-    name: 'Amina',
-  );
+  final child = ChildProfile(id: 'child1', parentId: 'parent1', name: 'Amina');
 
   final mapState = MapState(
     childId: child.id,
@@ -342,7 +348,8 @@ void main() {
         id: 1,
         arabic: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
         transliteration: 'Bismillahi r-rahmani r-rahim',
-        translation: 'In the name of Allah, the Most Gracious, the Most Merciful.',
+        translation:
+            'In the name of Allah, the Most Gracious, the Most Merciful.',
         meaning: 'We begin by remembering Allah with mercy and care.',
       ),
       AyahContent(
@@ -396,14 +403,18 @@ void main() {
     ),
   ];
 
-  testWidgets('ChildHomeScreen renders mission control with resume + stamps', (tester) async {
+  testWidgets('ChildHomeScreen renders mission map-first home layout', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const ChildHomeScreen(),
         overrides: [
           selectedChildProvider.overrideWithValue(child),
           mapStateProvider.overrideWith((ref) async => mapState),
-          childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+          childProgressSummaryProvider.overrideWith(
+            (ref, childId) async => summary,
+          ),
         ],
       ),
     );
@@ -411,37 +422,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Mission Control'), findsOneWidget);
-    expect(find.textContaining('Welcome, '), findsOneWidget);
-    expect(find.text('Continue mission'), findsOneWidget);
-    expect(find.text('Explore the map'), findsOneWidget);
+    expect(find.textContaining('is ready'), findsOneWidget);
+    expect(find.text('ENTRY'), findsWidgets);
+    expect(find.textContaining('active slots left'), findsOneWidget);
+    expect(find.text('Enter Entry'), findsOneWidget);
   });
 
-  testWidgets('ChildHomeScreen handles large text scale without layout exceptions', (tester) async {
-    await tester.pumpWidget(
-      _wrapApp(
-        const ChildHomeScreen(),
-        overrides: [
-          selectedChildProvider.overrideWithValue(child),
-          mapStateProvider.overrideWith((ref) async => mapState),
-          childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
-        ],
-        textScale: 2.0,
-      ),
-    );
+  testWidgets(
+    'ChildHomeScreen handles large text scale without layout exceptions',
+    (tester) async {
+      await tester.pumpWidget(
+        _wrapApp(
+          const ChildHomeScreen(),
+          overrides: [
+            selectedChildProvider.overrideWithValue(child),
+            mapStateProvider.overrideWith((ref) async => mapState),
+            childProgressSummaryProvider.overrideWith(
+              (ref, childId) async => summary,
+            ),
+          ],
+          textScale: 2.0,
+        ),
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isNull);
-  });
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('GalaxyMapScreen renders galaxies and slot indicator', (tester) async {
+  testWidgets('GalaxyMapScreen renders galaxies and slot indicator', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const GalaxyMapScreen(),
-        overrides: [
-          mapStateProvider.overrideWith((ref) async => mapState),
-        ],
+        overrides: [mapStateProvider.overrideWith((ref) async => mapState)],
       ),
     );
 
@@ -449,26 +465,29 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.textContaining('slots left'), findsOneWidget);
-    expect(find.text('Enter galaxy'), findsOneWidget);
+    expect(find.textContaining('Enter '), findsOneWidget);
   });
 
-  testWidgets('GalaxyMapScreen handles large text scale without layout exceptions', (tester) async {
-    await tester.pumpWidget(
-      _wrapApp(
-        const GalaxyMapScreen(),
-        overrides: [
-          mapStateProvider.overrideWith((ref) async => mapState),
-        ],
-        textScale: 2.0,
-      ),
-    );
+  testWidgets(
+    'GalaxyMapScreen handles large text scale without layout exceptions',
+    (tester) async {
+      await tester.pumpWidget(
+        _wrapApp(
+          const GalaxyMapScreen(),
+          overrides: [mapStateProvider.overrideWith((ref) async => mapState)],
+          textScale: 2.0,
+        ),
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isNull);
-  });
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('PlanetMapScreen renders orbit nodes for a galaxy', (tester) async {
+  testWidgets('PlanetMapScreen renders orbit nodes for a galaxy', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const PlanetMapScreen(galaxyId: 1),
@@ -483,11 +502,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Galaxy'), findsWidgets);
+    expect(find.text('ENTRY'), findsOneWidget);
     expect(find.text('Al-Fatihah'), findsOneWidget);
   });
 
-  testWidgets('SurahJourneyScreen renders constellation path and nodes', (tester) async {
+  testWidgets('SurahJourneyScreen renders constellation path and nodes', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const SurahJourneyScreen(surahId: 1),
@@ -495,7 +516,9 @@ void main() {
           selectedChildProvider.overrideWithValue(child),
           mapRepositoryProvider.overrideWithValue(_FakeMapRepository()),
           mapStateProvider.overrideWith((ref) async => mapState),
-          surahJourneyStepsProvider(1).overrideWith((ref) async => journeySteps),
+          surahJourneyStepsProvider(
+            1,
+          ).overrideWith((ref) async => journeySteps),
         ],
       ),
     );
@@ -503,12 +526,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Journey'), findsOneWidget);
-    expect(find.text('INTRO'), findsOneWidget);
-    expect(find.textContaining('Follow the constellation'), findsOneWidget);
+    expect(find.text('Al-Fatihah'), findsWidgets);
+    expect(find.textContaining('Start mission'), findsWidgets);
+    expect(find.text('MEMORIZE'), findsOneWidget);
   });
 
-  testWidgets('RewardScreen renders collectible reward details', (tester) async {
+  testWidgets('RewardScreen renders collectible reward details', (
+    tester,
+  ) async {
     final args = RewardScreenArgs(
       event: const RewardEvent(
         type: RewardType.badge,
@@ -523,10 +548,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      _wrapApp(
-        RewardScreen(args: args),
-        overrides: const [],
-      ),
+      _wrapApp(RewardScreen(args: args), overrides: const []),
     );
 
     await tester.pumpAndSettle();
@@ -537,13 +559,17 @@ void main() {
     expect(find.text('95%'), findsOneWidget);
   });
 
-  testWidgets('AyahLearnScreen renders illustration-first lesson layout', (tester) async {
+  testWidgets('AyahLearnScreen renders illustration-first lesson layout', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const AyahLearnScreen(surahId: 1, ayahId: 1),
         overrides: [
           selectedChildProvider.overrideWithValue(child),
-          practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+          practiceSessionRepositoryProvider.overrideWithValue(
+            _FakePracticeSessionRepository(),
+          ),
           surahContentProvider(1).overrideWith((ref) async => surahContent),
         ],
       ),
@@ -556,14 +582,20 @@ void main() {
     expect(find.textContaining('Practice recitation'), findsOneWidget);
   });
 
-  testWidgets('RecitationPracticeScreen renders without plugin exceptions', (tester) async {
+  testWidgets('RecitationPracticeScreen renders without plugin exceptions', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const RecitationPracticeScreen(surahId: 1, ayahId: 1),
         overrides: [
           selectedChildProvider.overrideWithValue(child),
-          practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
-          recitationRepositoryProvider.overrideWithValue(_FakeRecitationRepository()),
+          practiceSessionRepositoryProvider.overrideWithValue(
+            _FakePracticeSessionRepository(),
+          ),
+          recitationRepositoryProvider.overrideWithValue(
+            _FakeRecitationRepository(),
+          ),
           surahContentProvider(1).overrideWith((ref) async => surahContent),
         ],
       ),
@@ -576,37 +608,50 @@ void main() {
     expect(find.textContaining('Back to learn'), findsOneWidget);
   });
 
-  testWidgets('QuizScreen renders mission card + options without plugin exceptions', (tester) async {
+  testWidgets(
+    'QuizScreen renders mission card + options without plugin exceptions',
+    (tester) async {
+      await tester.pumpWidget(
+        _wrapApp(
+          const QuizScreen(surahId: 1, quizType: QuizType.mini1),
+          overrides: [
+            selectedChildProvider.overrideWithValue(child),
+            practiceSessionRepositoryProvider.overrideWithValue(
+              _FakePracticeSessionRepository(),
+            ),
+            quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
+            quizRecitationRepositoryProvider.overrideWithValue(
+              _FakeQuizRecitationRepository(),
+            ),
+            surahContentProvider(1).overrideWith((ref) async => surahContent),
+          ],
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(QuizType.mini1.label), findsOneWidget);
+      expect(find.text('MEMORIZATION'), findsOneWidget);
+      expect(find.textContaining('Recite the two verses'), findsOneWidget);
+    },
+  );
+
+  testWidgets('QuizScreen handles large text scale without layout exceptions', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrapApp(
         const QuizScreen(surahId: 1, quizType: QuizType.mini1),
         overrides: [
           selectedChildProvider.overrideWithValue(child),
-          practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+          practiceSessionRepositoryProvider.overrideWithValue(
+            _FakePracticeSessionRepository(),
+          ),
           quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
-          quizRecitationRepositoryProvider.overrideWithValue(_FakeQuizRecitationRepository()),
-          surahContentProvider(1).overrideWith((ref) async => surahContent),
-        ],
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
-    expect(find.text(QuizType.mini1.label), findsOneWidget);
-    expect(find.text('MEMORIZATION'), findsOneWidget);
-    expect(find.textContaining('Recite the two verses'), findsOneWidget);
-  });
-
-  testWidgets('QuizScreen handles large text scale without layout exceptions', (tester) async {
-    await tester.pumpWidget(
-      _wrapApp(
-        const QuizScreen(surahId: 1, quizType: QuizType.mini1),
-        overrides: [
-          selectedChildProvider.overrideWithValue(child),
-          practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
-          quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
-          quizRecitationRepositoryProvider.overrideWithValue(_FakeQuizRecitationRepository()),
+          quizRecitationRepositoryProvider.overrideWithValue(
+            _FakeQuizRecitationRepository(),
+          ),
           surahContentProvider(1).overrideWith((ref) async => surahContent),
         ],
         textScale: 2.0,
@@ -638,7 +683,9 @@ void main() {
       overrides: [
         selectedChildProvider.overrideWithValue(child),
         mapStateProvider.overrideWith((ref) async => mapState),
-        childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+        childProgressSummaryProvider.overrideWith(
+          (ref, childId) async => summary,
+        ),
       ],
       reason: 'ChildHomeScreen (small phone)',
     );
@@ -646,9 +693,7 @@ void main() {
     await _pumpAndExpectNoException(
       tester,
       const GalaxyMapScreen(),
-      overrides: [
-        mapStateProvider.overrideWith((ref) async => mapState),
-      ],
+      overrides: [mapStateProvider.overrideWith((ref) async => mapState)],
       reason: 'GalaxyMapScreen (small phone)',
     );
 
@@ -680,7 +725,9 @@ void main() {
       const AyahLearnScreen(surahId: 1, ayahId: 1),
       overrides: [
         selectedChildProvider.overrideWithValue(child),
-        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        practiceSessionRepositoryProvider.overrideWithValue(
+          _FakePracticeSessionRepository(),
+        ),
         surahContentProvider(1).overrideWith((ref) async => surahContent),
       ],
       reason: 'AyahLearnScreen (small phone)',
@@ -691,8 +738,12 @@ void main() {
       const RecitationPracticeScreen(surahId: 1, ayahId: 1),
       overrides: [
         selectedChildProvider.overrideWithValue(child),
-        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
-        recitationRepositoryProvider.overrideWithValue(_FakeRecitationRepository()),
+        practiceSessionRepositoryProvider.overrideWithValue(
+          _FakePracticeSessionRepository(),
+        ),
+        recitationRepositoryProvider.overrideWithValue(
+          _FakeRecitationRepository(),
+        ),
         surahContentProvider(1).overrideWith((ref) async => surahContent),
       ],
       reason: 'RecitationPracticeScreen (small phone)',
@@ -703,9 +754,13 @@ void main() {
       const QuizScreen(surahId: 1, quizType: QuizType.mini1),
       overrides: [
         selectedChildProvider.overrideWithValue(child),
-        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        practiceSessionRepositoryProvider.overrideWithValue(
+          _FakePracticeSessionRepository(),
+        ),
         quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
-        quizRecitationRepositoryProvider.overrideWithValue(_FakeQuizRecitationRepository()),
+        quizRecitationRepositoryProvider.overrideWithValue(
+          _FakeQuizRecitationRepository(),
+        ),
         surahContentProvider(1).overrideWith((ref) async => surahContent),
       ],
       reason: 'QuizScreen (small phone)',
@@ -728,7 +783,9 @@ void main() {
       overrides: [
         selectedChildProvider.overrideWithValue(child),
         mapStateProvider.overrideWith((ref) async => mapState),
-        childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+        childProgressSummaryProvider.overrideWith(
+          (ref, childId) async => summary,
+        ),
       ],
       reason: 'ChildHomeScreen (tablet)',
     );
@@ -736,9 +793,7 @@ void main() {
     await _pumpAndExpectNoException(
       tester,
       const GalaxyMapScreen(),
-      overrides: [
-        mapStateProvider.overrideWith((ref) async => mapState),
-      ],
+      overrides: [mapStateProvider.overrideWith((ref) async => mapState)],
       reason: 'GalaxyMapScreen (tablet)',
     );
 
@@ -766,7 +821,9 @@ void main() {
     );
   });
 
-  testWidgets('Responsive: large text on small phone (core screens)', (tester) async {
+  testWidgets('Responsive: large text on small phone (core screens)', (
+    tester,
+  ) async {
     _setTestViewSize(tester, const Size(360, 640));
 
     await _pumpAndExpectNoException(
@@ -775,7 +832,9 @@ void main() {
       overrides: [
         selectedChildProvider.overrideWithValue(child),
         mapStateProvider.overrideWith((ref) async => mapState),
-        childProgressSummaryProvider.overrideWith((ref, childId) async => summary),
+        childProgressSummaryProvider.overrideWith(
+          (ref, childId) async => summary,
+        ),
       ],
       textScale: 2.0,
       reason: 'ChildHomeScreen (small phone, large text)',
@@ -784,9 +843,7 @@ void main() {
     await _pumpAndExpectNoException(
       tester,
       const GalaxyMapScreen(),
-      overrides: [
-        mapStateProvider.overrideWith((ref) async => mapState),
-      ],
+      overrides: [mapStateProvider.overrideWith((ref) async => mapState)],
       textScale: 2.0,
       reason: 'GalaxyMapScreen (small phone, large text)',
     );
@@ -796,9 +853,13 @@ void main() {
       const QuizScreen(surahId: 1, quizType: QuizType.mini1),
       overrides: [
         selectedChildProvider.overrideWithValue(child),
-        practiceSessionRepositoryProvider.overrideWithValue(_FakePracticeSessionRepository()),
+        practiceSessionRepositoryProvider.overrideWithValue(
+          _FakePracticeSessionRepository(),
+        ),
         quizRepositoryProvider.overrideWithValue(_FakeQuizRepository()),
-        quizRecitationRepositoryProvider.overrideWithValue(_FakeQuizRecitationRepository()),
+        quizRecitationRepositoryProvider.overrideWithValue(
+          _FakeQuizRecitationRepository(),
+        ),
         surahContentProvider(1).overrideWith((ref) async => surahContent),
       ],
       textScale: 2.0,

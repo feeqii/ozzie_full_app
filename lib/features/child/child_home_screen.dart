@@ -2,157 +2,190 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_spacing.dart';
-import '../../core/ui/app_app_bar.dart';
-import '../../core/ui/app_card.dart';
-import '../../core/ui/app_scaffold.dart';
-import '../../core/ui/primary_button.dart';
-import '../../core/ui/secondary_button.dart';
-import '../auth/controllers/auth_controller.dart';
-import '../child/providers/child_providers.dart';
+import '../map/models/map_models.dart';
 import '../map/providers/map_providers.dart';
-import '../progress/providers/progress_providers.dart';
+import '../parent/utils/parent_access_gate.dart';
+import 'providers/child_providers.dart';
+import 'ui/mission_buttons.dart';
+import 'ui/mission_orbit_icon.dart';
+import 'ui/mission_scaffold.dart';
+import 'ui/mission_speech_bubble.dart';
+import 'ui/mission_status_tag.dart';
+import 'ui/mission_top_bar.dart';
+import 'ui/mission_tokens.dart';
 
-class ChildHomeScreen extends ConsumerWidget {
+class ChildHomeScreen extends ConsumerStatefulWidget {
   const ChildHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final child = ref.watch(selectedChildProvider);
-    final mapAsync = ref.watch(mapStateProvider);
-    final summaryAsync = child == null ? null : ref.watch(childProgressSummaryProvider(child.id));
+  ConsumerState<ChildHomeScreen> createState() => _ChildHomeScreenState();
+}
 
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Mission Control', showBack: false),
-      body: ListView(
+class _ChildHomeScreenState extends ConsumerState<ChildHomeScreen> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final mapAsync = ref.watch(mapStateProvider);
+    final child = ref.watch(selectedChildProvider);
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
+    return MissionScaffold(
+      extendToBottom: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            child == null ? 'Welcome' : 'Welcome, ${child.name}',
-            style: Theme.of(context).textTheme.displayLarge,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Pick up where you left off or explore the universe.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (summaryAsync != null)
-            summaryAsync.when(
-              data: (summary) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('Today', style: Theme.of(context).textTheme.labelMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StampChip(
-                            icon: Icons.local_fire_department_outlined,
-                            label: 'Streak',
-                            value: '${summary.streak.currentStreak}d',
-                            onTap: () => context.push('/child/progress/streak'),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: _StampChip(
-                            icon: Icons.score_outlined,
-                            label: 'Score',
-                            value: '${summary.score.averageScore}%',
-                            onTap: () => context.push('/child/progress/score'),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: _StampChip(
-                            icon: Icons.timer_outlined,
-                            label: 'Time',
-                            value: '${summary.sessions.totalMinutes}m',
-                            onTap: () => context.push('/child/progress/time'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-              loading: () => const SizedBox(height: 82),
-              error: (_, __) => const SizedBox.shrink(),
+          MissionTopBar(
+            child: child,
+            onProgress: () => context.push('/child/progress'),
+            onParentActions: () => openParentRouteWithPin(
+              context: context,
+              ref: ref,
+              nextRoute: '/parent/dashboard',
             ),
-          const SizedBox(height: AppSpacing.lg),
-          mapAsync.when(
-            data: (mapState) {
-              final active = mapState?.galaxies.expand((g) => g.surahs).where((s) => s.isActive).toList();
-              active?.sort((a, b) => (a.activeSlot ?? 99).compareTo(b.activeSlot ?? 99));
-              final next = active != null && active.isNotEmpty ? active.first : null;
-              if (next == null) {
-                return AppCard(
-                  variant: AppCardVariant.soft,
-                  padding: const EdgeInsets.all(AppSpacing.lg),
+          ),
+          const SizedBox(height: MissionSpacing.md),
+          Expanded(
+            child: mapAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: Text(
+                  'Unable to load mission control.',
+                  style: MissionText.body(colors.textSecondary),
+                ),
+              ),
+              data: (mapState) {
+                if (mapState == null || mapState.galaxies.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No missions available yet.',
+                      style: MissionText.body(colors.textSecondary),
+                    ),
+                  );
+                }
+
+                final galaxies = [...mapState.galaxies]
+                  ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+
+                if (_selectedIndex >= galaxies.length) {
+                  _selectedIndex = galaxies.length - 1;
+                }
+
+                final selected = galaxies[_selectedIndex];
+                final message = selected.unlocked
+                    ? '${selected.nameEn} is ready. Pick a route and keep going.'
+                    : '${selected.nameEn} is locked. Finish earlier zones first.';
+                final subtitle = selected.unlocked
+                    ? 'Zone unlocked. Tap to continue your journey.'
+                    : 'Complete previous zones to unlock this one.';
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: MissionSpacing.xxl),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Your next mission', style: Theme.of(context).textTheme.headlineSmall),
-                      const SizedBox(height: AppSpacing.sm),
+                      MissionSpeechBubble(text: message),
+                      const SizedBox(height: MissionSpacing.md),
+                      Center(
+                        child: GestureDetector(
+                          onTap: selected.unlocked
+                              ? () => context.push(
+                                  '/child/map/galaxy/${selected.id}',
+                                )
+                              : null,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 214,
+                                height: 214,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: colors.surface.withValues(alpha: 0.44),
+                                  border: Border.all(
+                                    color: colors.line.withValues(alpha: 0.35),
+                                    width: 1.2,
+                                  ),
+                                ),
+                              ),
+                              MissionOrbitIcon(
+                                size: 152,
+                                opacity: selected.unlocked ? 1 : 0.45,
+                              ),
+                              if (!selected.unlocked)
+                                Container(
+                                  width: 62,
+                                  height: 62,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: colors.surface,
+                                    border: Border.all(
+                                      color: colors.textPrimary,
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.lock_rounded,
+                                    color: colors.textPrimary,
+                                    size: 26,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: MissionSpacing.md),
+                      Center(
+                        child: Text(
+                          selected.nameEn.toUpperCase(),
+                          style: MissionText.heading(colors.textPrimary),
+                        ),
+                      ),
+                      if ((selected.nameAr ?? '').isNotEmpty)
+                        Center(
+                          child: Text(
+                            selected.nameAr!,
+                            style: MissionText.body(colors.textSecondary),
+                          ),
+                        ),
+                      const SizedBox(height: MissionSpacing.sm),
+                      Center(
+                        child: MissionStatusTag(
+                          label: mapState.slotsRemaining > 0
+                              ? '${mapState.slotsRemaining} active slots left'
+                              : 'No active slots left',
+                          icon: Icons.auto_awesome,
+                        ),
+                      ),
+                      const SizedBox(height: MissionSpacing.md),
                       Text(
-                        'Head to the map to start a new surah.',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        subtitle,
+                        textAlign: TextAlign.center,
+                        style: MissionText.body(colors.textSecondary),
+                      ),
+                      const SizedBox(height: MissionSpacing.lg),
+                      _GalaxySelectorRow(
+                        galaxies: galaxies,
+                        selectedIndex: _selectedIndex,
+                        onSelect: (index) =>
+                            setState(() => _selectedIndex = index),
+                      ),
+                      const SizedBox(height: MissionSpacing.xl),
+                      MissionButton(
+                        label: selected.unlocked
+                            ? 'Enter ${selected.nameEn}'
+                            : '${selected.nameEn} locked',
+                        onPressed: selected.unlocked
+                            ? () => context.push(
+                                '/child/map/galaxy/${selected.id}',
+                              )
+                            : null,
                       ),
                     ],
                   ),
                 );
-              }
-
-              return AppCard(
-                variant: AppCardVariant.elevated,
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('Resume', style: Theme.of(context).textTheme.labelMedium),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(next.name, style: Theme.of(context).textTheme.headlineSmall),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(next.translation, style: Theme.of(context).textTheme.bodyMedium),
-                    const SizedBox(height: AppSpacing.md),
-                    PrimaryButton(
-                      label: 'Continue mission',
-                      onPressed: () => context.push('/child/surah/${next.id}'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(
-            label: 'Explore the map',
-            onPressed: () => context.push('/child/map'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          SecondaryButton(
-            label: 'View all progress',
-            onPressed: () => context.push('/child/progress'),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SecondaryButton(
-            label: 'Change child',
-            onPressed: () => context.go('/parent/child/select'),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          PrimaryButton(
-            label: 'Log out',
-            variant: PrimaryButtonVariant.danger,
-            onPressed: () async {
-              await ref.read(authControllerProvider.notifier).signOut();
-              await ref.read(selectedChildIdProvider.notifier).clear();
-              if (context.mounted) {
-                context.go('/auth/entry');
-              }
-            },
+              },
+            ),
           ),
         ],
       ),
@@ -160,45 +193,81 @@ class ChildHomeScreen extends ConsumerWidget {
   }
 }
 
-class _StampChip extends StatelessWidget {
-  const _StampChip({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.onTap,
+class _GalaxySelectorRow extends StatelessWidget {
+  const _GalaxySelectorRow({
+    required this.galaxies,
+    required this.selectedIndex,
+    required this.onSelect,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
+  final List<GalaxyNode> galaxies;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
-      variant: AppCardVariant.soft,
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: scheme.onSurface),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label.toUpperCase(), style: Theme.of(context).textTheme.labelSmall),
-                const SizedBox(height: AppSpacing.xs),
-                Text(value, style: Theme.of(context).textTheme.titleMedium),
-              ],
-            ),
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+
+    final start = (selectedIndex - 1).clamp(0, galaxies.length - 1);
+    final end = (start + 2).clamp(0, galaxies.length - 1);
+    final visible = [for (var i = start; i <= end; i++) i];
+
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        Positioned(
+          top: 40,
+          left: 24,
+          right: 24,
+          child: Container(
+            height: 1.1,
+            color: colors.line.withValues(alpha: 0.6),
           ),
-        ],
-      ),
+        ),
+        Row(
+          children: [
+            for (final index in visible)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onSelect(index),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: index == selectedIndex ? 84 : 70,
+                        height: index == selectedIndex ? 84 : 70,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.surface,
+                          border: Border.all(
+                            color: index == selectedIndex
+                                ? colors.textPrimary
+                                : colors.line,
+                            width: index == selectedIndex ? 1.4 : 1.0,
+                          ),
+                        ),
+                        child: Center(
+                          child: MissionOrbitIcon(
+                            size: index == selectedIndex ? 52 : 42,
+                            opacity: galaxies[index].unlocked ? 1 : 0.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: MissionSpacing.xs),
+                      Text(
+                        galaxies[index].nameEn.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        textScaler: const TextScaler.linear(1),
+                        style: MissionText.micro(colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
