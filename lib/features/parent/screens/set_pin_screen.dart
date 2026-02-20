@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/app_snackbar.dart';
-import '../../../core/ui/app_text_button.dart';
-import '../../../core/ui/pin_input.dart';
-import '../../../core/ui/primary_button.dart';
-import '../../../core/utils/pin_hash.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../onboarding/theme/onboarding_tokens.dart';
+import '../../onboarding/ui/onboarding_button.dart';
+import '../../onboarding/ui/onboarding_pin_widgets.dart';
+import '../../onboarding/ui/onboarding_scaffold.dart';
+import '../../onboarding/ui/onboarding_surface_card.dart';
+import '../../onboarding/ui/onboarding_theme_toggle.dart';
+import '../../../core/utils/pin_hash.dart';
 import '../providers/parent_profile_provider.dart';
 
 class SetPinScreen extends ConsumerStatefulWidget {
@@ -24,26 +22,29 @@ class SetPinScreen extends ConsumerStatefulWidget {
 class _SetPinScreenState extends ConsumerState<SetPinScreen> {
   String _pin = '';
   String _confirm = '';
-  bool _isConfirmStep = false;
+  bool _confirmStep = false;
   bool _isLoading = false;
+  String? _error;
 
   void _appendDigit(String digit) {
-    if (_isConfirmStep) {
-      if (_confirm.length >= 4) return;
-      setState(() {
-        _confirm += digit;
-      });
-    } else {
-      if (_pin.length >= 4) return;
-      setState(() {
-        _pin += digit;
-      });
-    }
+    setState(() {
+      _error = null;
+      if (_confirmStep) {
+        if (_confirm.length < 4) {
+          _confirm += digit;
+        }
+      } else {
+        if (_pin.length < 4) {
+          _pin += digit;
+        }
+      }
+    });
   }
 
   void _removeDigit() {
     setState(() {
-      if (_isConfirmStep) {
+      _error = null;
+      if (_confirmStep) {
         if (_confirm.isNotEmpty) {
           _confirm = _confirm.substring(0, _confirm.length - 1);
         }
@@ -56,38 +57,36 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
   }
 
   Future<void> _continue() async {
-    if (!_isConfirmStep) {
+    if (!_confirmStep) {
       if (_pin.length < 4) {
-        AppSnackbar.show(context, message: 'Enter a 4-digit PIN.');
+        setState(() => _error = 'Enter a 4-digit PIN.');
         return;
       }
       setState(() {
-        _isConfirmStep = true;
+        _confirmStep = true;
+        _error = null;
       });
       return;
     }
 
     if (_confirm.length < 4) {
-      AppSnackbar.show(context, message: 'Confirm your 4-digit PIN.');
+      setState(() => _error = 'Confirm your 4-digit PIN.');
       return;
     }
 
     if (_pin != _confirm) {
-      AppSnackbar.show(
-        context,
-        message: 'PINs do not match. Try again.',
-        isError: true,
-      );
       setState(() {
+        _error = 'PINs do not match. Try again.';
         _pin = '';
         _confirm = '';
-        _isConfirmStep = false;
+        _confirmStep = false;
       });
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
     try {
@@ -97,23 +96,21 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
       ref.invalidate(parentProfileProvider);
       await ref.read(parentProfileProvider.future);
       ref.read(pinVerifiedProvider.notifier).state = true;
-      if (mounted) {
-        context.go(_resolvedNextRoute());
-      }
-    } catch (error) {
+
       if (!mounted) {
         return;
       }
-      AppSnackbar.show(
-        context,
-        message: 'Unable to save PIN. Try again.',
-        isError: true,
+      context.go(_resolvedNextRoute());
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(
+        () => _error = 'Unable to save PIN right now. Please try again.',
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -121,149 +118,108 @@ class _SetPinScreenState extends ConsumerState<SetPinScreen> {
   String _resolvedNextRoute() {
     final next = GoRouterState.of(context).uri.queryParameters['next'];
     if (next == null || next.isEmpty || !next.startsWith('/')) {
-      return '/parent/dashboard';
+      return '/parent/child/select';
     }
     return next;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final title = _isConfirmStep ? 'Confirm PIN' : 'Create PIN';
-    final message = _isConfirmStep
-        ? 'Re-enter your 4-digit PIN.'
-        : 'Create a 4-digit PIN to secure parental access.';
-
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Parental PIN', showBack: false),
-      background: const AtlasBackground(
-        seed: 73,
-        intensity: 0.75,
-        showGrid: false,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final scheme = Theme.of(context).colorScheme;
-          return SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.displayLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      message,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.78),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    PinInput(
-                      length: 4,
-                      value: _isConfirmStep ? _confirm : _pin,
-                    ),
-                    Center(
-                      child: AppTextButton(
-                        label: 'Switch account',
-                        onPressed: _signOutToAuth,
-                      ),
-                    ),
-                    const Spacer(),
-                    _PinKeypad(
-                      onDigit: _appendDigit,
-                      onBackspace: _removeDigit,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    PrimaryButton(
-                      label: _isConfirmStep ? 'Save PIN' : 'Continue',
-                      isLoading: _isLoading,
-                      onPressed: _isLoading ? null : _continue,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _signOutToAuth() async {
+  Future<void> _switchAccount() async {
     await ref.read(authControllerProvider.notifier).signOut();
     if (mounted) {
       context.go('/auth/entry');
     }
   }
-}
-
-class _PinKeypad extends StatelessWidget {
-  const _PinKeypad({required this.onDigit, required this.onBackspace});
-
-  final ValueChanged<String> onDigit;
-  final VoidCallback onBackspace;
 
   @override
   Widget build(BuildContext context) {
-    final buttons = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['', '0', 'back'],
-    ];
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
+    final currentValue = _confirmStep ? _confirm : _pin;
 
-    return Column(
-      children: buttons.map((row) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: row.map((value) {
-              if (value.isEmpty) {
-                return const SizedBox(width: 56, height: 56);
-              }
-              if (value == 'back') {
-                return _KeypadButton(label: '⌫', onPressed: onBackspace);
-              }
-              return _KeypadButton(
-                label: value,
-                onPressed: () => onDigit(value),
-              );
-            }).toList(),
-          ),
-        );
-      }).toList(),
+    return OnboardingScaffold(
+      showBack: false,
+      trailing: const OnboardingThemeToggle(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _confirmStep
+                  ? 'Confirm your parent PIN'
+                  : 'Create your parent PIN',
+              style: OnboardingTypography.headline(colors.textPrimary),
+            ),
+            const SizedBox(height: OnboardingSpacing.sm),
+            Text(
+              _confirmStep
+                  ? 'Re-enter the same 4 digits to finish setup.'
+                  : 'This PIN protects parent-only actions and keeps child mode focused.',
+              style: OnboardingTypography.body(colors.textSecondary),
+            ),
+            const SizedBox(height: OnboardingSpacing.lg),
+            const OnboardingSurfaceCard(child: _PinTip()),
+            const SizedBox(height: OnboardingSpacing.lg),
+            OnboardingPinDots(value: currentValue),
+            if (_error != null) ...[
+              const SizedBox(height: OnboardingSpacing.sm),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: OnboardingTypography.label(OnboardingPalette.danger),
+              ),
+            ],
+            const SizedBox(height: OnboardingSpacing.lg),
+            OnboardingPinKeypad(
+              onDigit: _appendDigit,
+              onBackspace: _removeDigit,
+            ),
+            const SizedBox(height: OnboardingSpacing.md),
+            OnboardingButton(
+              label: _confirmStep ? 'Save PIN' : 'Continue',
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _continue,
+            ),
+            const SizedBox(height: OnboardingSpacing.xs),
+            OnboardingButton(
+              label: 'Switch account',
+              variant: OnboardingButtonVariant.text,
+              onPressed: _switchAccount,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _KeypadButton extends StatelessWidget {
-  const _KeypadButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
+class _PinTip extends StatelessWidget {
+  const _PinTip();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 56,
-      height: 56,
-      child: TextButton(
-        onPressed: onPressed,
-        child: Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
+
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: OnboardingPalette.blue.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+          ),
+          child: const Icon(
+            Icons.security_rounded,
+            color: OnboardingPalette.blue,
+          ),
         ),
-      ),
+        const SizedBox(width: OnboardingSpacing.sm),
+        Expanded(
+          child: Text(
+            'You can reset this PIN anytime by signing out and verifying your account again.',
+            style: OnboardingTypography.body(colors.textPrimary),
+          ),
+        ),
+      ],
     );
   }
 }

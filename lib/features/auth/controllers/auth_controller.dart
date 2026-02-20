@@ -5,10 +5,7 @@ import '../../../core/supabase_client_provider.dart';
 import '../repo/auth_repository.dart';
 
 class AuthActionState {
-  const AuthActionState({
-    this.isLoading = false,
-    this.errorMessage,
-  });
+  const AuthActionState({this.isLoading = false, this.errorMessage});
 
   final bool isLoading;
   final String? errorMessage;
@@ -30,23 +27,20 @@ class AuthController extends StateNotifier<AuthActionState> {
 
   final AuthRepository _repo;
 
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await _repo.signInWithPassword(
-        email: email.trim(),
-        password: password,
-      );
+      await _repo.signInWithPassword(email: email.trim(), password: password);
       state = state.copyWith(isLoading: false);
       return true;
     } on AuthException catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
     } catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Unable to sign in.');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unable to sign in.',
+      );
       return false;
     }
   }
@@ -58,10 +52,7 @@ class AuthController extends StateNotifier<AuthActionState> {
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      await _repo.signUpWithPassword(
-        email: email.trim(),
-        password: password,
-      );
+      await _repo.signUpWithPassword(email: email.trim(), password: password);
       await _repo.upsertProfile(displayName: displayName);
       state = state.copyWith(isLoading: false);
       return true;
@@ -69,13 +60,34 @@ class AuthController extends StateNotifier<AuthActionState> {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
     } catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Unable to sign up.');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unable to sign up.',
+      );
       return false;
     }
   }
 
   Future<void> signOut() async {
     await _repo.signOut();
+  }
+
+  Future<bool> requestPasswordReset({required String email}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _repo.requestPasswordReset(email.trim());
+      state = state.copyWith(isLoading: false);
+      return true;
+    } on AuthException catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unable to send password reset email.',
+      );
+      return false;
+    }
   }
 
   void clearError() {
@@ -88,7 +100,8 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(client);
 });
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthActionState>((ref) {
-  final repo = ref.watch(authRepositoryProvider);
-  return AuthController(repo);
-});
+final authControllerProvider =
+    StateNotifierProvider<AuthController, AuthActionState>((ref) {
+      final repo = ref.watch(authRepositoryProvider);
+      return AuthController(repo);
+    });

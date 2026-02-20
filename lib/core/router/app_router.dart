@@ -6,10 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/providers/auth_session_provider.dart';
 import '../../features/auth/screens/auth_entry_screen.dart';
-import '../../features/auth/screens/auth_otp_screen.dart';
+import '../../features/auth/screens/auth_forgot_password_screen.dart';
+import '../../features/auth/screens/auth_onboarding_screen.dart';
 import '../../features/auth/screens/auth_sign_in_screen.dart';
 import '../../features/auth/screens/auth_sign_up_screen.dart';
-import '../../features/auth/screens/auth_success_screen.dart';
 import '../../features/child/child_home_screen.dart';
 import '../../features/child/providers/child_providers.dart';
 import '../../features/child/screens/ayah_learn_screen.dart';
@@ -36,7 +36,7 @@ import '../../features/rewards/screens/reward_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/auth/entry',
+    initialLocation: '/auth/onboarding',
     refreshListenable: GoRouterRefreshStream(
       // ignore: deprecated_member_use
       ref.watch(authSessionProvider.stream),
@@ -66,7 +66,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (session == null) {
         if (!inAuthFlow) {
-          return '/auth/entry';
+          return '/auth/onboarding';
         }
         return null;
       }
@@ -83,14 +83,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      final profile = profileAsync.asData?.value;
-      if (profile == null) {
-        if (inAuthFlow && state.uri.path == '/auth/success') {
-          return null;
-        }
-        return '/auth/success';
-      }
-
       final children = childrenAsync.asData?.value ?? const [];
       if (children.isEmpty) {
         if (inParentPinFlow) {
@@ -100,21 +92,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return '/parent/child/add';
         }
         return null;
-      }
-
-      if (children.length == 1) {
-        final onlyChild = children.first;
-        final selectedId = selectedChildIdAsync.asData?.value;
-        if (selectedId != onlyChild.id) {
-          ref.read(selectedChildIdProvider.notifier).selectChild(onlyChild.id);
-        }
-        if (inParentFlow && isAllowedParentRoute) {
-          return null;
-        }
-        if (inChildFlow) {
-          return null;
-        }
-        return '/child/home';
       }
 
       final selectedId = selectedChildIdAsync.asData?.value;
@@ -150,6 +127,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const DesignSystemGalleryScreen(),
       ),
       GoRoute(
+        path: '/auth/onboarding',
+        builder: (context, state) => const AuthOnboardingScreen(),
+      ),
+      GoRoute(
         path: '/auth/entry',
         builder: (context, state) => const AuthEntryScreen(),
       ),
@@ -162,12 +143,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AuthSignInScreen(),
       ),
       GoRoute(
-        path: '/auth/otp',
-        builder: (context, state) => const AuthOtpScreen(),
-      ),
-      GoRoute(
-        path: '/auth/success',
-        builder: (context, state) => const AuthSuccessScreen(),
+        path: '/auth/forgot-password',
+        builder: (context, state) => const AuthForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/parent/pin/setup',

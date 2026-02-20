@@ -2,30 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../onboarding/onboarding_flow.dart';
 import '../../onboarding/theme/onboarding_tokens.dart';
 import '../../onboarding/ui/onboarding_button.dart';
 import '../../onboarding/ui/onboarding_scaffold.dart';
+import '../../onboarding/ui/onboarding_surface_card.dart';
 import '../../onboarding/ui/onboarding_text_field.dart';
 import '../../onboarding/ui/onboarding_theme_toggle.dart';
 import '../controllers/auth_controller.dart';
 
-class AuthSignInScreen extends ConsumerStatefulWidget {
-  const AuthSignInScreen({super.key});
+class AuthForgotPasswordScreen extends ConsumerStatefulWidget {
+  const AuthForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<AuthSignInScreen> createState() => _AuthSignInScreenState();
+  ConsumerState<AuthForgotPasswordScreen> createState() =>
+      _AuthForgotPasswordScreenState();
 }
 
-class _AuthSignInScreenState extends ConsumerState<AuthSignInScreen> {
+class _AuthForgotPasswordScreenState
+    extends ConsumerState<AuthForgotPasswordScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   String? _errorText;
+  bool _isSuccess = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -36,15 +37,9 @@ class _AuthSignInScreenState extends ConsumerState<AuthSignInScreen> {
 
   Future<void> _submit() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text;
 
     if (!_isValidEmail(email)) {
       setState(() => _errorText = 'Enter a valid email address.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setState(() => _errorText = 'Password must be at least 6 characters.');
       return;
     }
 
@@ -52,13 +47,13 @@ class _AuthSignInScreenState extends ConsumerState<AuthSignInScreen> {
 
     final success = await ref
         .read(authControllerProvider.notifier)
-        .signIn(email: email, password: password);
+        .requestPasswordReset(email: email);
 
-    if (!success || !mounted) {
+    if (!mounted || !success) {
       return;
     }
 
-    context.go(buildPostAuthOnboardingRoute().toString());
+    setState(() => _isSuccess = true);
   }
 
   @override
@@ -76,67 +71,61 @@ class _AuthSignInScreenState extends ConsumerState<AuthSignInScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Welcome back',
+              'Reset your password',
               style: OnboardingTypography.headline(colors.textPrimary),
             ),
             const SizedBox(height: OnboardingSpacing.sm),
             Text(
-              'Sign in to continue your child\'s recitation journey.',
+              'Enter your account email and we\'ll send reset instructions.',
               style: OnboardingTypography.body(colors.textSecondary),
             ),
             const SizedBox(height: OnboardingSpacing.lg),
-            OnboardingTextField(
-              label: 'Email',
-              hint: 'name@example.com',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              errorText: _errorText,
-              onChanged: (_) => setState(() => _errorText = null),
-            ),
-            const SizedBox(height: OnboardingSpacing.md),
-            OnboardingTextField(
-              label: 'Password',
-              hint: 'Enter your password',
-              controller: _passwordController,
-              obscureText: true,
-              onChanged: (_) => setState(() => _errorText = null),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OnboardingButton(
-                label: 'Forgot password?',
-                variant: OnboardingButtonVariant.text,
-                onPressed: () => context.push('/auth/forgot-password'),
+            if (_isSuccess)
+              OnboardingSurfaceCard(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.mark_email_read_outlined,
+                      color: OnboardingPalette.success,
+                    ),
+                    const SizedBox(width: OnboardingSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Check your inbox for password reset instructions.',
+                        style: OnboardingTypography.body(colors.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              OnboardingTextField(
+                label: 'Email',
+                hint: 'name@example.com',
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                errorText: _errorText,
+                onChanged: (_) => setState(() => _errorText = null),
               ),
-            ),
-            if (state.errorMessage != null) ...[
-              const SizedBox(height: OnboardingSpacing.sm),
-              _InlineError(message: _mapSignInError(state.errorMessage!)),
+            if (state.errorMessage != null && !_isSuccess) ...[
+              const SizedBox(height: OnboardingSpacing.md),
+              _InlineError(message: state.errorMessage!),
             ],
             const SizedBox(height: OnboardingSpacing.xl),
             OnboardingButton(
-              label: 'Continue',
+              label: _isSuccess ? 'Back to sign in' : 'Send reset email',
               isLoading: state.isLoading,
-              onPressed: state.isLoading ? null : _submit,
-            ),
-            const SizedBox(height: OnboardingSpacing.xs),
-            OnboardingButton(
-              label: 'Need an account? Sign up',
-              variant: OnboardingButtonVariant.text,
-              onPressed: () => context.replace('/auth/signup'),
+              onPressed: state.isLoading
+                  ? null
+                  : _isSuccess
+                  ? () => context.go('/auth/signin')
+                  : _submit,
             ),
           ],
         ),
       ),
     );
-  }
-
-  String _mapSignInError(String message) {
-    final lower = message.toLowerCase();
-    if (lower.contains('user not found') || lower.contains('not found')) {
-      return 'No account found yet. Please create one first.';
-    }
-    return message;
   }
 }
 

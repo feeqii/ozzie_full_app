@@ -3,16 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_extensions.dart';
-import '../../../core/theme/app_radii.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/app_snackbar.dart';
-import '../../../core/ui/app_text_field.dart';
-import '../../../core/ui/primary_button.dart';
 import '../../child/providers/child_providers.dart';
+import '../../onboarding/theme/onboarding_tokens.dart';
+import '../../onboarding/ui/onboarding_button.dart';
+import '../../onboarding/ui/onboarding_scaffold.dart';
+import '../../onboarding/ui/onboarding_surface_card.dart';
+import '../../onboarding/ui/onboarding_text_field.dart';
+import '../../onboarding/ui/onboarding_theme_toggle.dart';
 
 class AddChildScreen extends ConsumerStatefulWidget {
   const AddChildScreen({super.key});
@@ -23,14 +20,14 @@ class AddChildScreen extends ConsumerStatefulWidget {
 
 class _AddChildScreenState extends ConsumerState<AddChildScreen> {
   final _nameController = TextEditingController();
-  String? _errorText;
   bool _isLoading = false;
+  String? _error;
   int? _selectedYear;
   String? _selectedGender;
 
   List<int> get _yearOptions {
-    final now = DateTime.now().year;
-    return List.generate(13, (index) => now - 3 - index);
+    final current = DateTime.now().year;
+    return List.generate(13, (index) => current - 3 - index);
   }
 
   @override
@@ -41,30 +38,28 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
+
     if (name.isEmpty) {
-      setState(() {
-        _errorText = 'Enter your child\'s name.';
-      });
+      setState(() => _error = 'Please enter your child\'s name.');
       return;
     }
 
     if (_selectedYear == null) {
-      AppSnackbar.show(context, message: 'Select your child\'s birth year.');
+      setState(() => _error = 'Please select birth year.');
       return;
     }
 
     if (_selectedGender == null) {
-      AppSnackbar.show(context, message: 'Select your child\'s gender.');
+      setState(() => _error = 'Please select gender.');
       return;
     }
 
     setState(() {
-      _errorText = null;
+      _error = null;
       _isLoading = true;
     });
 
     try {
-      final existingCount = ref.read(childrenProvider).asData?.value.length ?? 0;
       final repo = ref.read(childRepositoryProvider);
       final child = await repo.addChild(
         name: name,
@@ -72,27 +67,21 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
         gender: _selectedGender,
       );
       await repo.ensureChildSettings(child.id);
+
       ref.invalidate(childrenProvider);
+      await ref.read(selectedChildIdProvider.notifier).clear();
 
-      if (!mounted) return;
-      AppSnackbar.show(context, message: 'Child added successfully.');
-
-      if (existingCount == 0) {
-        await ref.read(selectedChildIdProvider.notifier).selectChild(child.id);
-        if (!mounted) return;
-        context.go('/child/home');
-      } else {
-        await ref.read(selectedChildIdProvider.notifier).clear();
-        if (!mounted) return;
-        context.go('/parent/child/select');
+      if (!mounted) {
+        return;
       }
-    } catch (error) {
-      AppSnackbar.show(context, message: 'Unable to add child. Try again.', isError: true);
+      context.go('/parent/child/select');
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Could not add child. Please try again.');
+      }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -101,96 +90,80 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
     final years = _yearOptions;
     var initialIndex = 0;
     if (_selectedYear != null) {
-      final existingIndex = years.indexOf(_selectedYear!);
-      if (existingIndex >= 0) {
-        initialIndex = existingIndex;
+      final selectedIndex = years.indexOf(_selectedYear!);
+      if (selectedIndex >= 0) {
+        initialIndex = selectedIndex;
       }
     }
 
-    var tempYear = years[initialIndex];
+    var temporaryYear = years[initialIndex];
 
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final surfaces = context.surfaces;
-        final scheme = Theme.of(context).colorScheme;
+        final colors = OnboardingColors.resolve(Theme.of(context).brightness);
 
         return SafeArea(
-          child: SizedBox(
+          child: Container(
             height: 320,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: surfaces.sheet.withValues(alpha: 0.98),
-                  border: Border.all(color: surfaces.outlineStrong.withValues(alpha: 0.14), width: 1.4),
-                ),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg,
-                        vertical: AppSpacing.sm,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Select year',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.25,
-                                ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() => _selectedYear = tempYear);
-                              Navigator.of(context).pop();
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: scheme.primary,
-                            ),
-                            child: Text(
-                              'Done',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Divider(
-                      height: 1,
-                      color: surfaces.outlineStrong.withValues(alpha: 0.12),
-                    ),
-                    Expanded(
-                      child: CupertinoPicker(
-                        scrollController: FixedExtentScrollController(
-                          initialItem: initialIndex,
-                        ),
-                        itemExtent: 40,
-                        onSelectedItemChanged: (index) {
-                          tempYear = years[index];
-                        },
-                        children: years
-                            .map(
-                              (year) => Center(
-                                child: Text(
-                                  year.toString(),
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  ],
-                ),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(OnboardingRadii.lg),
               ),
+              border: Border.all(color: colors.border),
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: OnboardingSpacing.md,
+                    vertical: OnboardingSpacing.sm,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select birth year',
+                        style: OnboardingTypography.title(colors.textPrimary),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _selectedYear = temporaryYear);
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          'Done',
+                          style: OnboardingTypography.label(colors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: colors.border),
+                Expanded(
+                  child: CupertinoPicker(
+                    itemExtent: 42,
+                    scrollController: FixedExtentScrollController(
+                      initialItem: initialIndex,
+                    ),
+                    onSelectedItemChanged: (index) {
+                      temporaryYear = years[index];
+                    },
+                    children: years.map((year) {
+                      return Center(
+                        child: Text(
+                          '$year',
+                          style: OnboardingTypography.bodyStrong(
+                            colors.textPrimary,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -200,166 +173,214 @@ class _AddChildScreenState extends ConsumerState<AddChildScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Add Child'),
-      background: const AtlasBackground(seed: 79, intensity: 0.7, showGrid: false),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final scheme = Theme.of(context).colorScheme;
-          final surfaces = context.surfaces;
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
 
-          return SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('Who will recite?', style: Theme.of(context).textTheme.displayLarge),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Please add your child details.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.78),
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    AppTextField(
-                      label: 'Child name',
-                      controller: _nameController,
-                      hintText: 'Your child name',
-                      errorText: _errorText,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text('Child year of birth', style: Theme.of(context).textTheme.labelMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                    InkWell(
-                      onTap: _isLoading ? null : _showYearPicker,
-                      borderRadius: BorderRadius.circular(AppRadii.md),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                          vertical: AppSpacing.lg,
-                        ),
-                        decoration: BoxDecoration(
-                          color: surfaces.card,
-                          borderRadius: BorderRadius.circular(AppRadii.md),
-                          border: Border.all(
-                            color: surfaces.outlineStrong.withValues(alpha: 0.16),
-                            width: 1.4,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _selectedYear?.toString() ?? 'Select year',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: _selectedYear == null
-                                          ? scheme.onSurface.withValues(alpha: 0.55)
-                                          : scheme.onSurface,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              color: scheme.onSurface.withValues(alpha: 0.55),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text('Child gender', style: Theme.of(context).textTheme.labelMedium),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _GenderButton(
-                            label: 'Girl',
-                            isSelected: _selectedGender == 'girl',
-                            onTap: () => setState(() => _selectedGender = 'girl'),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: _GenderButton(
-                            label: 'Boy',
-                            isSelected: _selectedGender == 'boy',
-                            onTap: () => setState(() => _selectedGender = 'boy'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    PrimaryButton(
-                      label: 'Confirm',
-                      isLoading: _isLoading,
-                      onPressed: _isLoading ? null : _submit,
-                    ),
-                  ],
-                ),
-              ),
+    return OnboardingScaffold(
+      showBack: true,
+      onBack: () => context.pop(),
+      trailing: const OnboardingThemeToggle(),
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Tell us about your child',
+              style: OnboardingTypography.headline(colors.textPrimary),
             ),
-          );
-        },
+            const SizedBox(height: OnboardingSpacing.sm),
+            Text(
+              'This helps us personalize their recitation path.',
+              style: OnboardingTypography.body(colors.textSecondary),
+            ),
+            const SizedBox(height: OnboardingSpacing.lg),
+            OnboardingTextField(
+              label: 'Child name',
+              hint: 'Amina',
+              controller: _nameController,
+              errorText: _error,
+              onChanged: (_) => setState(() => _error = null),
+            ),
+            const SizedBox(height: OnboardingSpacing.md),
+            Text(
+              'Birth year',
+              style: OnboardingTypography.label(colors.textPrimary),
+            ),
+            const SizedBox(height: OnboardingSpacing.sm),
+            _PickerTile(
+              value: _selectedYear == null
+                  ? 'Select year'
+                  : _selectedYear.toString(),
+              onTap: _isLoading ? null : _showYearPicker,
+            ),
+            const SizedBox(height: OnboardingSpacing.md),
+            Text(
+              'Gender',
+              style: OnboardingTypography.label(colors.textPrimary),
+            ),
+            const SizedBox(height: OnboardingSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: _GenderChoice(
+                    label: 'Girl',
+                    selected: _selectedGender == 'girl',
+                    onTap: () => setState(() => _selectedGender = 'girl'),
+                  ),
+                ),
+                const SizedBox(width: OnboardingSpacing.sm),
+                Expanded(
+                  child: _GenderChoice(
+                    label: 'Boy',
+                    selected: _selectedGender == 'boy',
+                    onTap: () => setState(() => _selectedGender = 'boy'),
+                  ),
+                ),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: OnboardingSpacing.md),
+              Text(
+                _error!,
+                style: OnboardingTypography.label(OnboardingPalette.danger),
+              ),
+            ],
+            const SizedBox(height: OnboardingSpacing.xl),
+            const OnboardingSurfaceCard(child: _WarmNote()),
+            const SizedBox(height: OnboardingSpacing.xl),
+            OnboardingButton(
+              label: 'Save child profile',
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _submit,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _GenderButton extends StatelessWidget {
-  const _GenderButton({
+class _PickerTile extends StatelessWidget {
+  const _PickerTile({required this.value, this.onTap});
+
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
+
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(
+            horizontal: OnboardingSpacing.md,
+            vertical: OnboardingSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+            border: Border.all(color: colors.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: OnboardingTypography.body(
+                    value == 'Select year'
+                        ? colors.textSecondary
+                        : colors.textPrimary,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: colors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GenderChoice extends StatelessWidget {
+  const _GenderChoice({
     required this.label,
-    required this.isSelected,
+    required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final bool isSelected;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final surfaces = context.surfaces;
-    final scheme = Theme.of(context).colorScheme;
-    final backgroundColor = isSelected ? scheme.primary : surfaces.card;
-    final borderColor = isSelected ? scheme.primary : surfaces.outlineStrong.withValues(alpha: 0.16);
-    final textColor = isSelected ? scheme.onPrimary : scheme.onSurface;
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderColor,
-            width: 1.4,
+    return Material(
+      color: selected ? colors.primary : colors.surface,
+      borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(vertical: OnboardingSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+            border: Border.all(
+              color: selected ? colors.primary : colors.border,
+            ),
           ),
-          color: backgroundColor,
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: surfaces.shadow,
-                    blurRadius: 0,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: textColor,
+          child: Center(
+            child: Text(
+              label,
+              style: OnboardingTypography.bodyStrong(
+                selected ? colors.onPrimary : colors.textPrimary,
               ),
+            ),
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _WarmNote extends StatelessWidget {
+  const _WarmNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
+
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: OnboardingPalette.green.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(OnboardingRadii.sm),
+          ),
+          child: const Icon(
+            Icons.favorite_border_rounded,
+            color: OnboardingPalette.green,
+          ),
+        ),
+        const SizedBox(width: OnboardingSpacing.sm),
+        Expanded(
+          child: Text(
+            'You can add more children anytime from the parent area.',
+            style: OnboardingTypography.body(colors.textPrimary),
+          ),
+        ),
+      ],
     );
   }
 }

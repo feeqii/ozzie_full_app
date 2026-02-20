@@ -5,6 +5,7 @@ import 'core/app_bootstrap.dart';
 import 'core/app_startup_screen.dart';
 import 'core/practice_session_lifecycle_provider.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_theme_mode.dart';
 import 'core/theme/app_theme.dart';
 
 void main() {
@@ -26,12 +27,13 @@ class OzzieApp extends ConsumerWidget {
     ref.watch(practiceSessionLifecycleProvider);
 
     final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
 
     return MaterialApp.router(
       title: 'Ozzie Quran App',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

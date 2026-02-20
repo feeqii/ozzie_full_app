@@ -4,16 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/app_snackbar.dart';
-import '../../../core/ui/app_text_button.dart';
-import '../../../core/ui/pin_input.dart';
-import '../../../core/ui/primary_button.dart';
-import '../../../core/utils/pin_hash.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../onboarding/theme/onboarding_tokens.dart';
+import '../../onboarding/ui/onboarding_button.dart';
+import '../../onboarding/ui/onboarding_pin_widgets.dart';
+import '../../onboarding/ui/onboarding_scaffold.dart';
+import '../../onboarding/ui/onboarding_theme_toggle.dart';
+import '../../../core/utils/pin_hash.dart';
 import '../providers/parent_profile_provider.dart';
 
 class EnterPinScreen extends ConsumerStatefulWidget {
@@ -26,6 +23,7 @@ class EnterPinScreen extends ConsumerStatefulWidget {
 class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
   String _pin = '';
   bool _isLoading = false;
+  String? _error;
   Timer? _cooldownTimer;
 
   @override
@@ -35,87 +33,90 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
   }
 
   void _appendDigit(String digit) {
-    if (_pin.length >= 4) return;
+    if (_pin.length >= 4) {
+      return;
+    }
     setState(() {
       _pin += digit;
+      _error = null;
     });
   }
 
   void _removeDigit() {
-    if (_pin.isEmpty) return;
+    if (_pin.isEmpty) {
+      return;
+    }
     setState(() {
       _pin = _pin.substring(0, _pin.length - 1);
+      _error = null;
     });
   }
 
   Future<void> _verify() async {
     if (_pin.length < 4) {
-      AppSnackbar.show(context, message: 'Enter your 4-digit PIN.');
+      setState(() => _error = 'Enter your 4-digit PIN.');
       return;
     }
 
     final attempts = ref.read(pinAttemptProvider.notifier);
     if (attempts.isCoolingDown) {
-      AppSnackbar.show(
-        context,
-        message: 'Too many attempts. Try again shortly.',
-        isError: true,
-      );
+      setState(() => _error = 'Too many attempts. Please wait a moment.');
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
-    final profile = await ref.read(parentProfileProvider.future);
-    final storedHash = profile?.pinHash;
-    if (storedHash == null || storedHash.isEmpty) {
-      final setupUri = Uri(
-        path: '/parent/pin/setup',
-        queryParameters: {'next': _resolvedNextRoute()},
-      );
-      if (mounted) {
+    try {
+      final profile = await ref.read(parentProfileProvider.future);
+      final pinHash = profile?.pinHash;
+      if (pinHash == null || pinHash.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+        final setupUri = Uri(
+          path: '/parent/pin/setup',
+          queryParameters: {'next': _resolvedNextRoute()},
+        );
         context.go(setupUri.toString());
+        return;
       }
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      return;
-    }
 
-    final isValid = PinHash.verifyPin(_pin, storedHash);
-    if (!isValid) {
-      attempts.registerFailure();
+      final valid = PinHash.verifyPin(_pin, pinHash);
+      if (!valid) {
+        attempts.registerFailure();
+        setState(() {
+          _pin = '';
+          _error = 'Incorrect PIN. Please try again.';
+        });
+        _startCooldownTickerIfNeeded();
+        return;
+      }
+
+      attempts.reset();
+      ref.read(pinVerifiedProvider.notifier).state = true;
+
       if (!mounted) {
         return;
       }
-      AppSnackbar.show(context, message: 'Incorrect PIN.', isError: true);
-      setState(() {
-        _pin = '';
-      });
-      _startCooldownTickerIfNeeded();
-    } else {
-      attempts.reset();
-      ref.read(pinVerifiedProvider.notifier).state = true;
+      context.go(_resolvedNextRoute());
+    } catch (_) {
       if (mounted) {
-        context.go(_resolvedNextRoute());
+        setState(() => _error = 'Could not verify PIN. Please try again.');
       }
-    }
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   String _resolvedNextRoute() {
     final next = GoRouterState.of(context).uri.queryParameters['next'];
     if (next == null || next.isEmpty || !next.startsWith('/')) {
-      return '/parent/dashboard';
+      return '/parent/child/select';
     }
     return next;
   }
@@ -126,168 +127,84 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
     if (!controller.isCoolingDown) {
       return;
     }
+
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       if (!controller.isCoolingDown) {
         _cooldownTimer?.cancel();
-        setState(() {});
-      } else {
-        setState(() {});
       }
+      setState(() {});
     });
+  }
+
+  Future<void> _switchAccount() async {
+    await ref.read(authControllerProvider.notifier).signOut();
+    if (mounted) {
+      context.go('/auth/entry');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = OnboardingColors.resolve(Theme.of(context).brightness);
     final attemptState = ref.watch(pinAttemptProvider);
     final cooldownUntil = attemptState.cooldownUntil;
     final cooldownSeconds = cooldownUntil == null
         ? 0
         : cooldownUntil.difference(DateTime.now()).inSeconds.clamp(0, 999);
 
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Parental PIN', showBack: false),
-      background: const AtlasBackground(
-        seed: 75,
-        intensity: 0.75,
-        showGrid: false,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final scheme = Theme.of(context).colorScheme;
-          return SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Hello, parent',
-                      style: Theme.of(context).textTheme.displayLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Please confirm your entrance.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.78),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (cooldownSeconds > 0) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Try again in $cooldownSeconds seconds',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: scheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.xl),
-                    PinInput(
-                      length: 4,
-                      value: _pin,
-                      onForgotPin: () {
-                        _signOutToAuth();
-                      },
-                    ),
-                    Center(
-                      child: AppTextButton(
-                        label: 'Switch account',
-                        onPressed: _signOutToAuth,
-                      ),
-                    ),
-                    const Spacer(),
-                    _PinKeypad(
-                      onDigit: _appendDigit,
-                      onBackspace: _removeDigit,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    PrimaryButton(
-                      label: 'Verify PIN',
-                      isLoading: _isLoading,
-                      onPressed: _isLoading ? null : _verify,
-                    ),
-                  ],
-                ),
-              ),
+    return OnboardingScaffold(
+      trailing: const OnboardingThemeToggle(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Parent verification',
+              style: OnboardingTypography.headline(colors.textPrimary),
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _signOutToAuth() async {
-    await ref.read(authControllerProvider.notifier).signOut();
-    if (mounted) {
-      context.go('/auth/entry');
-    }
-  }
-}
-
-class _PinKeypad extends StatelessWidget {
-  const _PinKeypad({required this.onDigit, required this.onBackspace});
-
-  final ValueChanged<String> onDigit;
-  final VoidCallback onBackspace;
-
-  @override
-  Widget build(BuildContext context) {
-    final buttons = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['', '0', 'back'],
-    ];
-
-    return Column(
-      children: buttons.map((row) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: row.map((value) {
-              if (value.isEmpty) {
-                return const SizedBox(width: 56, height: 56);
-              }
-              if (value == 'back') {
-                return _KeypadButton(label: '⌫', onPressed: onBackspace);
-              }
-              return _KeypadButton(
-                label: value,
-                onPressed: () => onDigit(value),
-              );
-            }).toList(),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _KeypadButton extends StatelessWidget {
-  const _KeypadButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 56,
-      height: 56,
-      child: TextButton(
-        onPressed: onPressed,
-        child: Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+            const SizedBox(height: OnboardingSpacing.sm),
+            Text(
+              'Enter your 4-digit PIN to continue.',
+              style: OnboardingTypography.body(colors.textSecondary),
+            ),
+            if (cooldownSeconds > 0) ...[
+              const SizedBox(height: OnboardingSpacing.sm),
+              Text(
+                'Try again in $cooldownSeconds seconds.',
+                style: OnboardingTypography.label(colors.textSecondary),
+              ),
+            ],
+            const SizedBox(height: OnboardingSpacing.xl),
+            OnboardingPinDots(value: _pin),
+            if (_error != null) ...[
+              const SizedBox(height: OnboardingSpacing.sm),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: OnboardingTypography.label(OnboardingPalette.danger),
+              ),
+            ],
+            const SizedBox(height: OnboardingSpacing.lg),
+            OnboardingPinKeypad(
+              onDigit: _appendDigit,
+              onBackspace: _removeDigit,
+            ),
+            const SizedBox(height: OnboardingSpacing.md),
+            OnboardingButton(
+              label: 'Verify PIN',
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _verify,
+            ),
+            const SizedBox(height: OnboardingSpacing.xs),
+            OnboardingButton(
+              label: 'Switch account',
+              variant: OnboardingButtonVariant.text,
+              onPressed: _switchAccount,
+            ),
+          ],
         ),
       ),
     );

@@ -11,7 +11,6 @@ import '../../core/ui/full_screen_loader.dart';
 import '../../core/ui/app_scaffold.dart';
 import '../../core/ui/app_app_bar.dart';
 import '../../core/ui/app_text_field.dart';
-import '../../core/ui/otp_code_input.dart';
 import '../../core/ui/pin_input.dart';
 import '../../core/ui/secondary_button.dart';
 import '../../core/ui/app_text_button.dart';
@@ -50,7 +49,9 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'العربية',
-            style: AppTextStyles.arabicTitle.copyWith(color: Theme.of(context).colorScheme.onSurface),
+            style: AppTextStyles.arabicTitle.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Buttons'),
@@ -105,7 +106,9 @@ class DesignSystemGalleryScreen extends StatelessWidget {
                   message: 'One more time to master it.',
                   variant: ModalSheetVariant.success,
                   illustration: const IllustrationFrame(
-                    child: AtlasIllustration(kind: AtlasIllustrationKind.success),
+                    child: AtlasIllustration(
+                      kind: AtlasIllustrationKind.success,
+                    ),
                   ),
                   primaryAction: PrimaryButton(
                     label: 'Next',
@@ -124,23 +127,36 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           _sectionTitle(context, 'Inputs'),
           const AppTextField(label: 'Email', hintText: 'name@example.com'),
           const SizedBox(height: AppSpacing.lg),
-          const OtpCodeInput(length: 6),
-          const SizedBox(height: AppSpacing.lg),
           PinInput(length: 4, onForgotPin: () {}),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Quiz Option Card'),
-          QuizOptionCard(label: 'Default option', state: QuizOptionState.normal),
+          QuizOptionCard(
+            label: 'Default option',
+            state: QuizOptionState.normal,
+          ),
           const SizedBox(height: AppSpacing.md),
-          QuizOptionCard(label: 'Selected option', state: QuizOptionState.selected),
+          QuizOptionCard(
+            label: 'Selected option',
+            state: QuizOptionState.selected,
+          ),
           const SizedBox(height: AppSpacing.md),
-          QuizOptionCard(label: 'Correct option', state: QuizOptionState.correct),
+          QuizOptionCard(
+            label: 'Correct option',
+            state: QuizOptionState.correct,
+          ),
           const SizedBox(height: AppSpacing.md),
           QuizOptionCard(label: 'Wrong option', state: QuizOptionState.wrong),
           const SizedBox(height: AppSpacing.md),
-          QuizOptionCard(label: 'Disabled option', state: QuizOptionState.disabled),
+          QuizOptionCard(
+            label: 'Disabled option',
+            state: QuizOptionState.disabled,
+          ),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Recorder Module'),
-          const RecorderModule(state: RecorderState.idle, onPrimaryAction: _noop),
+          const RecorderModule(
+            state: RecorderState.idle,
+            onPrimaryAction: _noop,
+          ),
           const SizedBox(height: AppSpacing.md),
           const RecorderModule(
             state: RecorderState.recording,
@@ -208,7 +224,11 @@ class DesignSystemGalleryScreen extends StatelessWidget {
           const FullScreenLoader(message: 'Uploading...'),
           const SizedBox(height: AppSpacing.xl),
           _sectionTitle(context, 'Settings + Profiles'),
-          const SettingsRow(label: 'Daily Attempts', value: '6', showChevron: true),
+          const SettingsRow(
+            label: 'Daily Attempts',
+            value: '6',
+            showChevron: true,
+          ),
           const SizedBox(height: AppSpacing.md),
           const SettingsRow(
             label: 'Notifications',
@@ -239,10 +259,7 @@ class DesignSystemGalleryScreen extends StatelessWidget {
   static Widget _sectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
+      child: Text(title, style: Theme.of(context).textTheme.headlineSmall),
     );
   }
 
