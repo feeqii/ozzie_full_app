@@ -18,6 +18,11 @@ class MissionOrbitIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = MissionColors.resolve(Theme.of(context).brightness);
+    final resolvedColor =
+        color ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? colors.textSecondary
+            : null);
 
     return Opacity(
       opacity: opacity,
@@ -25,10 +30,9 @@ class MissionOrbitIcon extends StatelessWidget {
         'assets/illustrations/mission_orbit.svg',
         width: size,
         height: size,
-        colorFilter: ColorFilter.mode(
-          color ?? colors.textPrimary,
-          BlendMode.srcIn,
-        ),
+        colorFilter: resolvedColor == null
+            ? null
+            : ColorFilter.mode(resolvedColor, BlendMode.srcIn),
       ),
     );
   }

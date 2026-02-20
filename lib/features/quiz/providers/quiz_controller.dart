@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -65,6 +67,7 @@ class QuizController extends StateNotifier<QuizState> {
       );
 
   final QuizRepository _repo;
+  final Random _random = Random();
 
   void selectOption(String questionId, String optionId) {
     state = state.copyWith(
@@ -80,6 +83,24 @@ class QuizController extends StateNotifier<QuizState> {
     state = state.copyWith(
       currentIndex: state.currentIndex + 1,
       showFeedback: false,
+      clearWrongFeedbackStyle: true,
+    );
+  }
+
+  void retryCurrentQuestion({bool clearSelection = false}) {
+    if (state.questions.isEmpty) {
+      return;
+    }
+    final question = state.questions[state.currentIndex];
+    final nextSelections = Map<String, String>.from(state.selections);
+    if (clearSelection) {
+      nextSelections.remove(question.id);
+    }
+    state = state.copyWith(
+      selections: nextSelections,
+      showFeedback: false,
+      clearWrongFeedbackStyle: true,
+      clearError: true,
     );
   }
 
@@ -95,6 +116,7 @@ class QuizController extends StateNotifier<QuizState> {
       clearLockedUntil: true,
       nextStage: null,
       clearReward: true,
+      clearWrongFeedbackStyle: true,
       clearError: true,
     );
   }
@@ -159,7 +181,18 @@ class QuizController extends StateNotifier<QuizState> {
       state = state.copyWith(errorMessage: 'Pick an answer to continue.');
       return;
     }
-    state = state.copyWith(showFeedback: true, clearError: true);
+    final isCorrect = isCorrectSelection(question);
+    final feedbackStyle = isCorrect
+        ? null
+        : (_random.nextBool()
+              ? QuizWrongFeedbackStyle.detailed
+              : QuizWrongFeedbackStyle.motivational);
+    state = state.copyWith(
+      showFeedback: true,
+      wrongFeedbackStyle: feedbackStyle,
+      clearWrongFeedbackStyle: feedbackStyle == null,
+      clearError: true,
+    );
   }
 
   Future<void> submitQuiz() async {
@@ -243,6 +276,8 @@ class QuizController extends StateNotifier<QuizState> {
   }
 
   static List<QuizQuestion> _buildQuestions(int surahId, QuizType quizType) {
+    // TODO(reading-comprehension-contract): move question generation to a backend
+    // question bank once schema + APIs are finalized.
     if (surahId == 1 && quizType == QuizType.mini1) {
       return const [
         QuizQuestion(
@@ -254,7 +289,7 @@ class QuizController extends StateNotifier<QuizState> {
         ),
         QuizQuestion(
           id: 's1m1q2',
-          type: QuizQuestionType.comprehension,
+          type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
           prompt: 'What do we say in the opening of Al-Fatihah?',
           options: [
@@ -278,6 +313,32 @@ class QuizController extends StateNotifier<QuizState> {
           ],
           correctOptionId: 'a',
         ),
+        QuizQuestion(
+          id: 's1m1q3',
+          type: QuizQuestionType.comprehension,
+          title: 'Choose the meaning',
+          prompt: 'Which line asks Allah for guidance?',
+          context: 'Keep practicing comprehension while memorizing.',
+          options: [
+            QuizQuestionOption(
+              id: 'a',
+              label: 'Guide us to the straight path.',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'Master of the Day of Judgment.',
+            ),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'In the name of Allah, the Most Merciful.',
+            ),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'You alone we worship and ask for help.',
+            ),
+          ],
+          correctOptionId: 'a',
+        ),
       ];
     }
 
@@ -294,13 +355,34 @@ class QuizController extends StateNotifier<QuizState> {
           id: 's1m2q1',
           type: QuizQuestionType.completeVerse,
           title: 'Complete the verse',
-          prompt: 'Maliki ____',
+          prompt: 'Yawma yaqūmu wal-malāʼikatu ṣaffan',
           context: 'Al-Fatihah — Verse 4',
+          hasAudio: true,
           options: [
-            QuizQuestionOption(id: 'a', label: 'yawmi d-din'),
-            QuizQuestionOption(id: 'b', label: 'alamin'),
-            QuizQuestionOption(id: 'c', label: 'ar-rahman'),
-            QuizQuestionOption(id: 'd', label: 'nasta\'in'),
+            QuizQuestionOption(
+              id: 'a',
+              label: 'ar-rūḥu',
+              subtitle: 'الرُّوحُ',
+              audioRef: 's1m2q1_a',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'Yawma yaqūmu',
+              subtitle: 'يَوْمَ يَقُومُ',
+              audioRef: 's1m2q1_b',
+            ),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'Yawma yaqūmu',
+              subtitle: 'يَوْمَ يَقُومُ',
+              audioRef: 's1m2q1_c',
+            ),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'Yawma yaqūmu',
+              subtitle: 'يَوْمَ يَقُومُ',
+              audioRef: 's1m2q1_d',
+            ),
           ],
           correctOptionId: 'a',
         ),
@@ -318,6 +400,36 @@ class QuizController extends StateNotifier<QuizState> {
           ],
           correctOptionId: 'b',
         ),
+        QuizQuestion(
+          id: 's1m2q3',
+          type: QuizQuestionType.readingComprehension,
+          title: 'Answer the following question',
+          prompt: 'Who will be judged on the Day of Judgment?',
+          hasAudio: true,
+          options: [
+            QuizQuestionOption(
+              id: 'a',
+              label: 'All people will be judged for their deeds.',
+              audioRef: 's1m2q3_a',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'Only the angels will be judged.',
+              audioRef: 's1m2q3_b',
+            ),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'Only the believers will be judged.',
+              audioRef: 's1m2q3_c',
+            ),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'The animals will be judged.',
+              audioRef: 's1m2q3_d',
+            ),
+          ],
+          correctOptionId: 'c',
+        ),
       ];
     }
 
@@ -332,7 +444,7 @@ class QuizController extends StateNotifier<QuizState> {
         ),
         QuizQuestion(
           id: 's1fq2',
-          type: QuizQuestionType.comprehension,
+          type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
           prompt: 'What do we ask Allah for in Al-Fatihah?',
           options: [
@@ -346,6 +458,32 @@ class QuizController extends StateNotifier<QuizState> {
               label: 'Forgiveness for every mistake.',
             ),
             QuizQuestionOption(id: 'd', label: 'Strength to overcome fear.'),
+          ],
+          correctOptionId: 'a',
+        ),
+        QuizQuestion(
+          id: 's1fq3',
+          type: QuizQuestionType.completeVerse,
+          title: 'Complete the verse',
+          prompt: 'Iyyāka naʿbudu wa iyyāka ____',
+          context: 'Final check before surah completion.',
+          options: [
+            QuizQuestionOption(
+              id: 'a',
+              label: 'nastaʿīn',
+              subtitle: 'نَسْتَعِينُ',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'al-ʿālamīn',
+              subtitle: 'الْعَالَمِينَ',
+            ),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'ar-raḥīm',
+              subtitle: 'الرَّحِيمِ',
+            ),
+            QuizQuestionOption(id: 'd', label: 'mālik', subtitle: 'مَالِكِ'),
           ],
           correctOptionId: 'a',
         ),
@@ -363,7 +501,7 @@ class QuizController extends StateNotifier<QuizState> {
         ),
         QuizQuestion(
           id: 's112m1q2',
-          type: QuizQuestionType.comprehension,
+          type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
           prompt: 'What does Al-Ikhlas teach about Allah?',
           options: [
@@ -392,6 +530,7 @@ class QuizController extends StateNotifier<QuizState> {
           title: 'Complete the verse',
           prompt: 'Lam yalid wa ____',
           context: 'Al-Ikhlas — Verse 3',
+          hasAudio: true,
           options: [
             QuizQuestionOption(id: 'a', label: 'lam yulad'),
             QuizQuestionOption(id: 'b', label: 'lam yakun'),
@@ -431,7 +570,7 @@ class QuizController extends StateNotifier<QuizState> {
         ),
         QuizQuestion(
           id: 's112fq2',
-          type: QuizQuestionType.comprehension,
+          type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
           prompt: 'What does “As-Samad” mean?',
           options: [

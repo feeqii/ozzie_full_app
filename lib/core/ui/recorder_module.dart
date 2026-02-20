@@ -7,7 +7,6 @@ import '../theme/app_spacing.dart';
 import 'action_icon_button.dart';
 import 'atlas_illustrations.dart';
 import 'illustration_frame.dart';
-import 'primary_button.dart';
 
 enum RecorderState { idle, recording, review, submitting }
 
@@ -38,10 +37,7 @@ class RecorderModule extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _buildActionRow(context),
         const SizedBox(height: AppSpacing.md),
-        Text(
-          _helperText(),
-          style: Theme.of(context).textTheme.labelMedium,
-        ),
+        Text(_helperText(), style: Theme.of(context).textTheme.labelMedium),
       ],
     );
   }
@@ -93,10 +89,9 @@ class RecorderModule extends StatelessWidget {
           ],
         );
       case RecorderState.submitting:
-        return const PrimaryButton(
-          label: 'Submitting...',
-          onPressed: null,
-          isLoading: true,
+        return const SizedBox(
+          height: 56,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
         );
     }
   }
@@ -109,7 +104,10 @@ class RecorderModule extends StatelessWidget {
       decoration: BoxDecoration(
         color: surfaces.cardSubtle.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: context.surfaces.outlineStrong.withValues(alpha: 0.22), width: 1.2),
+        border: Border.all(
+          color: context.surfaces.outlineStrong.withValues(alpha: 0.22),
+          width: 1.2,
+        ),
         boxShadow: AppShadows.soft,
       ),
       alignment: Alignment.centerRight,

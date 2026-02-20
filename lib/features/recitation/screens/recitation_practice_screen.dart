@@ -1,30 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../../../core/ui/alert_banner.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_card.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/atlas_illustrations.dart';
-import '../../../core/ui/illustration_frame.dart';
-import '../../../core/ui/label_chip.dart';
-import '../../../core/ui/modal_sheet.dart';
-import '../../../core/ui/primary_button.dart';
-import '../../../core/ui/recorder_module.dart';
-import '../../../core/ui/secondary_button.dart';
+import '../../child/ui/lesson_widgets.dart';
+import '../../child/ui/mission_buttons.dart';
+import '../../child/ui/mission_card.dart';
+import '../../child/ui/mission_scaffold.dart';
+import '../../child/ui/mission_tokens.dart';
 import '../../content/providers/content_providers.dart';
-import '../../rewards/models/reward_event.dart';
-import '../models/recitation_state.dart';
-import '../providers/recitation_controller.dart';
-import '../../quiz/models/quiz_models.dart';
 import '../../progress/providers/progress_refresh.dart';
 import '../../progress/widgets/practice_session_boundary.dart';
+import '../../quiz/models/quiz_models.dart';
+import '../../rewards/models/reward_event.dart';
+import '../../../core/ui/recorder_module.dart';
+import '../models/recitation_state.dart';
+import '../providers/recitation_controller.dart';
 
 class RecitationPracticeScreen extends ConsumerStatefulWidget {
   const RecitationPracticeScreen({
@@ -37,10 +29,12 @@ class RecitationPracticeScreen extends ConsumerStatefulWidget {
   final int ayahId;
 
   @override
-  ConsumerState<RecitationPracticeScreen> createState() => _RecitationPracticeScreenState();
+  ConsumerState<RecitationPracticeScreen> createState() =>
+      _RecitationPracticeScreenState();
 }
 
-class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScreen> {
+class _RecitationPracticeScreenState
+    extends ConsumerState<RecitationPracticeScreen> {
   bool _didRequestPermission = false;
 
   @override
@@ -51,8 +45,13 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
         return;
       }
       _didRequestPermission = true;
-      final params = RecitationParams(surahId: widget.surahId, ayahId: widget.ayahId);
-      ref.read(recitationControllerProvider(params).notifier).ensureMicPermission();
+      final params = RecitationParams(
+        surahId: widget.surahId,
+        ayahId: widget.ayahId,
+      );
+      ref
+          .read(recitationControllerProvider(params).notifier)
+          .ensureMicPermission();
     });
   }
 
@@ -60,338 +59,418 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
   Widget build(BuildContext context) {
     final surahId = widget.surahId;
     final ayahId = widget.ayahId;
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
     final surahAsync = ref.watch(surahContentProvider(surahId));
     final params = RecitationParams(surahId: surahId, ayahId: ayahId);
-    final controller = ref.watch(
-      recitationControllerProvider(params),
-    );
-    final notifier = ref.read(
-      recitationControllerProvider(params).notifier,
-    );
+    final controller = ref.watch(recitationControllerProvider(params));
+    final notifier = ref.read(recitationControllerProvider(params).notifier);
 
     ref.listen(recitationControllerProvider(params), (previous, next) {
-      final finishedUpload = previous?.stage == RecitationStage.uploading &&
+      final finishedUpload =
+          previous?.stage == RecitationStage.uploading &&
           next.stage != RecitationStage.uploading &&
           (next.errorMessage == null || next.errorMessage!.isEmpty);
       if (finishedUpload && next.childId.isNotEmpty) {
         refreshChildProgress(ref.invalidate, next.childId);
       }
 
-      if (previous?.errorMessage != next.errorMessage && next.errorMessage != null && next.errorMessage!.isNotEmpty) {
+      if (previous?.errorMessage != next.errorMessage &&
+          next.errorMessage != null &&
+          next.errorMessage!.isNotEmpty) {
         HapticFeedback.lightImpact();
-        ModalSheetTrigger.show(
+        ScaffoldMessenger.of(
           context,
-          sheet: ModalSheet(
-            title: 'Something went wrong',
-            message: next.errorMessage!,
-            variant: ModalSheetVariant.fail,
-            illustration: const IllustrationFrame(
-              size: 150,
-              child: AtlasIllustration(kind: AtlasIllustrationKind.retry),
-            ),
-            primaryAction: PrimaryButton(
-              label: 'Okay',
-              onPressed: () => context.pop(),
-            ),
-          ),
+        ).showSnackBar(SnackBar(content: Text(next.errorMessage!)));
+      }
+
+      if (previous?.showMicSettingsPrompt != next.showMicSettingsPrompt &&
+          next.showMicSettingsPrompt) {
+        HapticFeedback.selectionClick();
+        _showInfoSheet(
+          title: 'Microphone access required',
+          message:
+              'Enable microphone access from Settings to record recitation.',
+          primaryLabel: 'Open settings',
+          onPrimary: () async {
+            await openAppSettings();
+            if (context.mounted) {
+              context.pop();
+            }
+          },
         );
+        notifier.clearMicPermissionPrompt();
       }
 
       final stageChanged = previous?.stage != next.stage;
+
       if (stageChanged &&
-          (next.stage == RecitationStage.feedbackSuccess || next.stage == RecitationStage.feedbackFail) &&
+          (next.stage == RecitationStage.feedbackSuccess ||
+              next.stage == RecitationStage.feedbackFail) &&
           next.rewardEvent == null) {
         final passed = next.stage == RecitationStage.feedbackSuccess;
-        final remaining = next.passesRemaining;
-        final message = () {
-          if (remaining == null) {
-            return passed ? 'Nice! Let\'s do it again to master it.' : 'Almost. Try again and listen carefully.';
-          }
-          if (remaining <= 0) {
-            return passed ? 'Ayah mastered. Great job.' : 'Try again to master it.';
-          }
-          return passed ? '$remaining more to master it. Record again.' : '$remaining more to master it. Try again.';
-        }();
-
         if (passed) {
           HapticFeedback.mediumImpact();
         } else {
           HapticFeedback.lightImpact();
         }
-        ModalSheetTrigger.show(
-          context,
-          sheet: ModalSheet(
-            title: passed ? 'Great job' : 'Try again',
-            message: message,
-            variant: passed ? ModalSheetVariant.success : ModalSheetVariant.fail,
-            illustration: IllustrationFrame(
-              size: 150,
-              child: AtlasIllustration(
-                kind: passed ? AtlasIllustrationKind.success : AtlasIllustrationKind.retry,
-              ),
-            ),
-            primaryAction: PrimaryButton(
-              label: passed ? 'Record again' : 'Try again',
-              onPressed: () {
-                context.pop();
-                notifier.setRecording();
-              },
-            ),
-            secondaryAction: PrimaryButton(
-              label: 'Back to learn',
-              variant: PrimaryButtonVariant.warning,
-              onPressed: () {
-                context.pop();
-                context.pop();
-              },
-            ),
-          ),
+        _showAttemptResultSheet(
+          state: next,
+          passed: passed,
+          onRetry: () {
+            context.pop();
+            notifier.setRecording();
+          },
         );
       }
-      if (previous?.showMicSettingsPrompt != next.showMicSettingsPrompt && next.showMicSettingsPrompt) {
-        HapticFeedback.selectionClick();
-        ModalSheetTrigger.show(
-          context,
-          sheet: ModalSheet(
-            title: 'Microphone access required',
-            message: 'Enable the microphone in Settings to record your recitation.',
-            variant: ModalSheetVariant.info,
-            illustration: const IllustrationFrame(
-              size: 150,
-              child: AtlasIllustration(kind: AtlasIllustrationKind.recite),
-            ),
-            primaryAction: PrimaryButton(
-              label: 'Open Settings',
-              onPressed: () async {
-                await openAppSettings();
-                if (!context.mounted) return;
-                context.pop();
-              },
-            ),
-            secondaryAction: PrimaryButton(
-              label: 'Not now',
-              onPressed: () => context.pop(),
-            ),
-          ),
-        );
-        notifier.clearMicPermissionPrompt();
-      }
-      if (previous?.rewardEvent != next.rewardEvent && next.rewardEvent != null) {
+
+      if (previous?.rewardEvent != next.rewardEvent &&
+          next.rewardEvent != null) {
         HapticFeedback.mediumImpact();
         final args = RewardScreenArgs(
           event: next.rewardEvent!,
           primaryLabel: 'Continue',
-          primaryRoute: '/child/surah/$surahId',
+          primaryRoute: '/child/surah/$surahId/journey',
           secondaryLabel: 'Back home',
           secondaryRoute: '/child/home',
         );
         notifier.clearReward();
         context.push('/child/reward', extra: args);
       }
-      if (previous?.stage != next.stage && next.stage == RecitationStage.gateToQuiz) {
+
+      if (stageChanged && next.stage == RecitationStage.gateToQuiz) {
         final quizType = quizTypeFromGate(next.nextGate);
-        final route = quizType == null ? '/child/surah/$surahId' : '/child/surah/$surahId/quiz/${quizType.apiValue}';
+        final route = quizType == null
+            ? '/child/surah/$surahId/journey'
+            : '/child/surah/$surahId/quiz/${quizType.apiValue}';
         HapticFeedback.mediumImpact();
-        ModalSheetTrigger.show(
-          context,
-          sheet: ModalSheet(
-            title: 'Mini quiz unlocked',
-            message: 'Great job. A quick quiz is ready.',
-            variant: ModalSheetVariant.success,
-            illustration: const IllustrationFrame(
-              size: 150,
-              child: AtlasIllustration(kind: AtlasIllustrationKind.quiz),
-            ),
-            primaryAction: PrimaryButton(
-              label: 'Continue',
-              onPressed: () {
-                context.pop();
-                context.push(route);
-              },
-            ),
-          ),
+        _showInfoSheet(
+          title: 'Challenge time',
+          message: 'A quick check is unlocked. Let\'s go.',
+          primaryLabel: 'Lets go',
+          secondaryLabel: 'Go back to ayat flow',
+          onPrimary: () {
+            context.pop();
+            context.push(route);
+          },
+          onSecondary: () {
+            context.pop();
+            context.go('/child/surah/$surahId/journey');
+          },
         );
       }
-      if (previous?.stage != next.stage && next.stage == RecitationStage.interventionRequired) {
+
+      if (stageChanged && next.stage == RecitationStage.interventionRequired) {
         HapticFeedback.selectionClick();
-        ModalSheetTrigger.show(
-          context,
-          sheet: ModalSheet(
-            title: 'Let\'s review first',
-            message: 'Listen and read the ayah again before trying.',
-            variant: ModalSheetVariant.info,
-            illustration: const IllustrationFrame(
-              size: 150,
-              child: AtlasIllustration(kind: AtlasIllustrationKind.lesson),
-            ),
-            primaryAction: PrimaryButton(
-              label: 'Back to learn',
-              onPressed: () {
-                context.pop();
-                context.pop();
-              },
-            ),
-          ),
+        _showInfoSheet(
+          title: 'Let\'s review first',
+          message: 'Read and listen once more, then recite again.',
+          primaryLabel: 'Back to verse',
+          onPrimary: () {
+            context.pop();
+            context.go('/child/surah/$surahId/ayah/$ayahId');
+          },
         );
       }
-      if (previous?.stage != next.stage && next.stage == RecitationStage.lockedOut) {
+
+      if (stageChanged && next.stage == RecitationStage.lockedOut) {
         HapticFeedback.mediumImpact();
-        ModalSheetTrigger.show(
-          context,
-          sheet: ModalSheet(
-            title: 'Try again tomorrow',
-            message: 'You have used all attempts for today. Come back tomorrow.',
-            variant: ModalSheetVariant.info,
-            illustration: const IllustrationFrame(
-              size: 150,
-              child: AtlasIllustration(kind: AtlasIllustrationKind.sleep),
-            ),
-            primaryAction: PrimaryButton(
-              label: 'Back home',
-              onPressed: () => context.go('/child/home'),
-            ),
-          ),
+        _showInfoSheet(
+          title: 'Try again tomorrow',
+          message: 'You used all attempts for today.',
+          primaryLabel: 'Back to ayat flow',
+          onPrimary: () {
+            context.pop();
+            context.go('/child/surah/$surahId/journey');
+          },
         );
       }
     });
 
     return PracticeSessionBoundary(
-      child: AppScaffold(
-        appBar: const AppAppBar(title: 'Practice'),
-        contentPadding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.xl,
-        ),
-        background: const AtlasBackground(),
-        body: surahAsync.when(
+      child: MissionScaffold(
+        extendToBottom: true,
+        child: surahAsync.when(
           data: (surah) {
-            final ayah = surah.ayahs.firstWhere((item) => item.id == ayahId, orElse: () => surah.ayahs.first);
-            final scheme = Theme.of(context).colorScheme;
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
+            final ayah = surah.ayahs.firstWhere(
+              (item) => item.id == ayahId,
+              orElse: () => surah.ayahs.first,
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LessonNavBar(
+                  title: '${surah.name} - verse $ayahId',
+                  leadingIcon: Icons.close_rounded,
+                  onLeadingTap: () =>
+                      context.go('/child/surah/$surahId/journey'),
+                ),
+                const SizedBox(height: MissionSpacing.md),
+                LessonStarsBar(
+                  total: 6,
+                  filled: _filledForStage(controller.stage),
+                ),
+                const SizedBox(height: MissionSpacing.md),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: MissionSpacing.xxl),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        MissionCard(
+                          padding: const EdgeInsets.all(MissionSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              LabelChip(label: 'Surah $surahId'),
-                              const SizedBox(width: AppSpacing.sm),
-                              LabelChip(label: 'Ayah $ayahId'),
-                              const Spacer(),
-                              if (controller.passesRemaining != null)
-                                LabelChip(
-                                  label: '${controller.passesRemaining} left',
-                                  background: scheme.primary.withValues(alpha: 0.14),
-                                  borderColor: scheme.primary.withValues(alpha: 0.75),
-                                  foregroundColor: scheme.onSurface,
-                                ),
+                              Text(
+                                ayah.arabic,
+                                textAlign: TextAlign.center,
+                                style: MissionText.heading(colors.textPrimary)
+                                    .copyWith(
+                                      fontFamily: 'NotoNaskhArabic',
+                                      height: 1.62,
+                                    ),
+                              ),
+                              const SizedBox(height: MissionSpacing.sm),
+                              Container(
+                                height: 1,
+                                color: colors.line.withValues(alpha: 0.45),
+                              ),
+                              const SizedBox(height: MissionSpacing.sm),
+                              Text(
+                                ayah.transliteration,
+                                textAlign: TextAlign.center,
+                                style: MissionText.body(colors.textPrimary),
+                              ),
+                              const SizedBox(height: MissionSpacing.xs),
+                              Text(
+                                ayah.translation,
+                                textAlign: TextAlign.center,
+                                style: MissionText.body(colors.textSecondary),
+                              ),
+                              const SizedBox(height: MissionSpacing.sm),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  MissionIconButton(
+                                    icon: Icons.play_arrow_rounded,
+                                    onPressed: () {
+                                      // TODO(lesson-audio): play tutor recitation sample from backend/source.
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Tutor audio placeholder.',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    semanticLabel: 'Play tutor audio',
+                                  ),
+                                  const SizedBox(width: MissionSpacing.sm),
+                                  MissionIconButton(
+                                    icon: Icons.visibility_off_outlined,
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Hide helper placeholder.',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    semanticLabel: 'Hide helper',
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppCard(
-                            variant: AppCardVariant.elevated,
-                            padding: const EdgeInsets.all(AppSpacing.xl),
-                            child: Column(
-                              children: [
-                                Text(
-                                  controller.shouldBlurVerse ? _blurText(ayah.arabic) : ayah.arabic,
-                                  style: AppTextStyles.arabicTitle.copyWith(color: scheme.onSurface),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  ayah.translation,
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: scheme.onSurface.withValues(alpha: 0.78),
-                                      ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          if (controller.attemptsLeftToday != null)
-                            AlertBanner(
-                              message: '${controller.attemptsLeftToday} attempts left today',
-                              variant: AlertBannerVariant.warning,
-                            ),
-                          const SizedBox(height: AppSpacing.lg),
-                          RecorderModule(
-                            state: _mapRecorderState(controller.stage),
-                            onPrimaryAction: () {
-                              switch (controller.stage) {
-                                case RecitationStage.idle:
-                                  HapticFeedback.selectionClick();
-                                  notifier.setRecording();
-                                  break;
-                                case RecitationStage.recording:
-                                  HapticFeedback.lightImpact();
-                                  notifier.stopRecording();
-                                  break;
-                                case RecitationStage.review:
-                                  HapticFeedback.selectionClick();
-                                  notifier.submitRecording();
-                                  break;
-                                case RecitationStage.feedbackSuccess:
-                                case RecitationStage.feedbackFail:
-                                  HapticFeedback.selectionClick();
-                                  notifier.setRecording();
-                                  break;
-                                case RecitationStage.uploading:
-                                case RecitationStage.interventionRequired:
-                                case RecitationStage.lockedOut:
-                                case RecitationStage.gateToQuiz:
-                                  break;
-                              }
-                            },
-                            onSecondaryAction: () {
-                              HapticFeedback.selectionClick();
-                              notifier.setRecording();
-                            },
-                            onListen: () {
-                              HapticFeedback.selectionClick();
-                              notifier.playRecording();
-                            },
-                            durationLabel: controller.durationLabel,
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
+                        ),
+                        const SizedBox(height: MissionSpacing.md),
+                        RecorderModule(
+                          state: _mapRecorderState(controller.stage),
+                          onPrimaryAction: () {
+                            switch (controller.stage) {
+                              case RecitationStage.idle:
+                                HapticFeedback.selectionClick();
+                                notifier.setRecording();
+                                break;
+                              case RecitationStage.recording:
+                                HapticFeedback.lightImpact();
+                                notifier.stopRecording();
+                                break;
+                              case RecitationStage.review:
+                                HapticFeedback.selectionClick();
+                                notifier.submitRecording();
+                                break;
+                              case RecitationStage.feedbackSuccess:
+                              case RecitationStage.feedbackFail:
+                                HapticFeedback.selectionClick();
+                                notifier.setRecording();
+                                break;
+                              case RecitationStage.uploading:
+                              case RecitationStage.interventionRequired:
+                              case RecitationStage.lockedOut:
+                              case RecitationStage.gateToQuiz:
+                                break;
+                            }
+                          },
+                          onSecondaryAction: () {
+                            HapticFeedback.selectionClick();
+                            notifier.setRecording();
+                          },
+                          onListen: () {
+                            HapticFeedback.selectionClick();
+                            notifier.playRecording();
+                          },
+                          durationLabel: controller.durationLabel,
+                        ),
+                        const SizedBox(height: MissionSpacing.sm),
+                        if (controller.attemptsLeftToday != null)
                           Text(
-                            controller.resultSummary(),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onSurface.withValues(alpha: 0.78),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            '${controller.attemptsLeftToday} attempts left today',
                             textAlign: TextAlign.center,
+                            style: MissionText.micro(colors.textSecondary),
                           ),
-                          const Spacer(),
-                          SecondaryButton(
-                            label: 'Back to learn',
-                            onPressed: () => context.pop(),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
+          error: (_, __) => Center(
             child: Text(
               'Unable to load recitation.',
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: MissionText.body(colors.textSecondary),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showAttemptResultSheet({
+    required RecitationState state,
+    required bool passed,
+    required VoidCallback onRetry,
+  }) {
+    final attemptsLeft = state.attemptsLeftToday;
+    final detailed = state.showDetailedFeedback;
+
+    if (passed) {
+      showLessonFeedbackSheet(
+        context: context,
+        sheet: LessonFeedbackSheet(
+          title: 'Good job',
+          message: 'Time to boost your recitation',
+          emphasis: state.passesRemaining == null
+              ? null
+              : '${state.passesRemaining} passes left to mastery',
+          primaryLabel: 'Next',
+          onPrimary: onRetry,
+        ),
+      );
+      return;
+    }
+
+    final showCorrectiveHint =
+        detailed || (DateTime.now().millisecond % 2 == 0);
+    showLessonFeedbackSheet(
+      context: context,
+      sheet: LessonFeedbackSheet(
+        title: 'Incorrect',
+        titleColor: const Color(0xFFCF6660),
+        message: showCorrectiveHint
+            ? 'Try reciting it one more time.'
+            : 'Keep going, you\'re close.',
+        emphasis: attemptsLeft == null ? null : '$attemptsLeft attempts left',
+        detailLabel: showCorrectiveHint ? 'Time elapsed' : null,
+        detailValue: showCorrectiveHint ? state.durationLabel : null,
+        primaryLabel: 'Try again',
+        onPrimary: onRetry,
+      ),
+    );
+  }
+
+  void _showInfoSheet({
+    required String title,
+    required String message,
+    required String primaryLabel,
+    required VoidCallback onPrimary,
+    String? secondaryLabel,
+    VoidCallback? onSecondary,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            MissionSpacing.lg,
+            MissionSpacing.xl,
+            MissionSpacing.lg,
+            MissionSpacing.xl,
+          ),
+          decoration: BoxDecoration(
+            color: MissionColors.resolve(
+              Theme.of(context).brightness,
+            ).surfaceElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: MissionText.heading(
+                  MissionColors.resolve(
+                    Theme.of(context).brightness,
+                  ).textPrimary,
+                ),
+              ),
+              const SizedBox(height: MissionSpacing.sm),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: MissionText.body(
+                  MissionColors.resolve(
+                    Theme.of(context).brightness,
+                  ).textSecondary,
+                ),
+              ),
+              const SizedBox(height: MissionSpacing.lg),
+              MissionButton(
+                label: primaryLabel,
+                variant: MissionButtonVariant.outline,
+                onPressed: onPrimary,
+              ),
+              if ((secondaryLabel ?? '').isNotEmpty) ...[
+                const SizedBox(height: MissionSpacing.md),
+                TextButton(
+                  onPressed: onSecondary,
+                  child: Text(
+                    secondaryLabel!,
+                    style: MissionText.title(
+                      MissionColors.resolve(
+                        Theme.of(context).brightness,
+                      ).textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -414,7 +493,21 @@ class _RecitationPracticeScreenState extends ConsumerState<RecitationPracticeScr
     }
   }
 
-  String _blurText(String text) {
-    return text.split('').map((char) => char == ' ' ? ' ' : '•').join();
+  int _filledForStage(RecitationStage stage) {
+    switch (stage) {
+      case RecitationStage.idle:
+      case RecitationStage.recording:
+      case RecitationStage.review:
+        return 2;
+      case RecitationStage.uploading:
+      case RecitationStage.feedbackSuccess:
+      case RecitationStage.feedbackFail:
+        return 3;
+      case RecitationStage.gateToQuiz:
+        return 4;
+      case RecitationStage.interventionRequired:
+      case RecitationStage.lockedOut:
+        return 2;
+    }
   }
 }

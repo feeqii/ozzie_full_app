@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_extensions.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_card.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/label_chip.dart';
-import '../../../core/ui/primary_button.dart';
+import '../ui/lesson_widgets.dart';
+import '../ui/mission_buttons.dart';
+import '../ui/mission_scaffold.dart';
+import '../ui/mission_tokens.dart';
+import '../../child/providers/child_providers.dart';
 import '../../content/providers/content_providers.dart';
-import '../../quiz/models/quiz_models.dart';
-import '../../quiz/providers/quiz_providers.dart';
+import '../../journey/models/journey_models.dart';
+import '../../journey/providers/journey_providers.dart';
+import '../../map/providers/map_providers.dart';
 
 class SurahOverviewScreen extends ConsumerWidget {
   const SurahOverviewScreen({super.key, required this.surahId});
@@ -22,115 +20,104 @@ class SurahOverviewScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surahAsync = ref.watch(surahContentProvider(surahId));
-    final progressAsync = ref.watch(surahProgressProvider(surahId));
-    final progress = progressAsync.asData?.value;
-    final quizType = quizTypeFromGate(progress?.stage);
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
 
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Surah Overview'),
-      background: const AtlasBackground(seed: 35),
-      body: surahAsync.when(
+    return MissionScaffold(
+      extendToBottom: true,
+      child: surahAsync.when(
         data: (surah) {
-          final scheme = Theme.of(context).colorScheme;
-          final surfaces = context.surfaces;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LessonNavBar(
+                title: '${surah.name} overview',
+                onLeadingTap: () => context.pop(),
+              ),
+              const SizedBox(height: MissionSpacing.md),
+              Text(
+                '${surah.ayahs.length} verses',
+                textAlign: TextAlign.center,
+                style: MissionText.label(colors.textSecondary),
+              ),
+              const SizedBox(height: MissionSpacing.md),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: MissionSpacing.xxl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LessonMediaPanel(
+                        height: 430,
+                        caption:
+                            'Listen and view this surah overview before beginning the mission.',
+                        onTap: () => _showAudioPlaceholder(context),
+                        onAudioTap: () => _showAudioPlaceholder(context),
+                      ),
+                      const SizedBox(height: MissionSpacing.lg),
+                      MissionButton(
+                        label: 'Start mission',
+                        variant: MissionButtonVariant.outline,
+                        onPressed: () async {
+                          final child = ref.read(selectedChildProvider);
+                          if (child == null) {
+                            return;
+                          }
 
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        LabelChip(
-                          label: 'Surah ${surah.id}',
-                          background: surfaces.card.withValues(alpha: 0.7),
-                          borderColor: surfaces.outlineStrong.withValues(alpha: 0.18),
-                          foregroundColor: scheme.onSurface,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          '${surah.ayahs.length} ayahs',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: scheme.onSurface.withValues(alpha: 0.72),
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(surah.name, style: Theme.of(context).textTheme.displayLarge),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      surah.translation,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.78),
-                          ),
-                    ),
-                    if (quizType != null) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      PrimaryButton(
-                        label: 'Continue ${quizType.label}',
-                        onPressed: () => context.push('/child/surah/$surahId/quiz/${quizType.apiValue}'),
+                          final journeyRepo = ref.read(
+                            journeyRepositoryProvider,
+                          );
+                          final mapRepo = ref.read(mapRepositoryProvider);
+                          final levels = await journeyRepo.fetchLevels(
+                            surahId: surahId,
+                          );
+                          final introLevel = levels.firstWhere(
+                            (level) =>
+                                level.type == JourneyLevelType.surahIntro,
+                            orElse: () => const JourneyLevel(
+                              id: '',
+                              surahId: 0,
+                              type: JourneyLevelType.verseLesson,
+                              orderIndex: 0,
+                            ),
+                          );
+
+                          if (introLevel.id.isNotEmpty) {
+                            await mapRepo.completeLevel(
+                              childId: child.id,
+                              levelId: introLevel.id,
+                            );
+                            ref.invalidate(mapStateProvider);
+                            ref.invalidate(surahJourneyStepsProvider(surahId));
+                          }
+
+                          if (context.mounted) {
+                            context.push('/child/surah/$surahId/journey');
+                          }
+                        },
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.lg),
-                  ],
-                ),
-              ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final ayah = surah.ayahs[index];
-                    final isLocked = progress != null && ayah.id > progress.unlockedAyahMax;
-                    final isLast = index == surah.ayahs.length - 1;
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
-                      child: AppCard(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        variant: AppCardVariant.soft,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Ayah ${ayah.id}', style: Theme.of(context).textTheme.labelMedium),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              ayah.arabic,
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontFamily: 'NotoNaskhArabic',
-                                    height: 1.7,
-                                  ),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              ayah.translation,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: scheme.onSurface.withValues(alpha: 0.78),
-                                  ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            PrimaryButton(
-                              label: isLocked ? 'Locked' : 'Learn this ayah',
-                              isDisabled: isLocked,
-                              onPressed: isLocked
-                                  ? null
-                                  : () => context.push('/child/surah/$surahId/ayah/${ayah.id}'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  childCount: surah.ayahs.length,
+                  ),
                 ),
               ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('Unable to load surah.', style: Theme.of(context).textTheme.bodyMedium),
+        error: (_, __) => Center(
+          child: Text(
+            'Unable to load this surah right now.',
+            style: MissionText.body(colors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
+    );
+  }
+
+  void _showAudioPlaceholder(BuildContext context) {
+    // TODO(lesson-audio): wire intro media playback endpoint/source for each surah.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Audio preview will be connected soon.')),
     );
   }
 }

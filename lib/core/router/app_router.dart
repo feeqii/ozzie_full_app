@@ -15,6 +15,7 @@ import '../../features/child/providers/child_providers.dart';
 import '../../features/child/screens/ayah_learn_screen.dart';
 import '../../features/child/screens/surah_intro_screen.dart';
 import '../../features/child/screens/surah_journey_screen.dart';
+import '../../features/child/screens/surah_overview_screen.dart';
 import '../../features/gallery/design_system_gallery_screen.dart';
 import '../../features/map/screens/galaxy_map_screen.dart';
 import '../../features/map/screens/planet_map_screen.dart';
@@ -300,6 +301,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/child/surah/:surahId',
+        builder: (context, state) {
+          final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
+          if (surahId == null) {
+            return const ChildHomeScreen();
+          }
+          return SurahOverviewScreen(surahId: surahId);
+        },
+      ),
+      GoRoute(
+        path: '/child/surah/:surahId/journey',
         builder: (context, state) {
           final surahId = int.tryParse(state.pathParameters['surahId'] ?? '');
           if (surahId == null) {

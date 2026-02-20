@@ -2,18 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_card.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_illustrations.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/illustration_frame.dart';
-import '../../../core/ui/primary_button.dart';
-import '../../../core/ui/secondary_button.dart';
 import '../../content/providers/content_providers.dart';
 import '../../progress/widgets/practice_session_boundary.dart';
+import '../ui/lesson_widgets.dart';
+import '../ui/mission_buttons.dart';
+import '../ui/mission_card.dart';
+import '../ui/mission_scaffold.dart';
+import '../ui/mission_tokens.dart';
 
 class AyahLearnScreen extends ConsumerWidget {
   const AyahLearnScreen({
@@ -28,104 +23,124 @@ class AyahLearnScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surahAsync = ref.watch(surahContentProvider(surahId));
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
 
     return PracticeSessionBoundary(
-      child: AppScaffold(
-        appBar: const AppAppBar(title: 'Ayah'),
-        background: const AtlasBackground(seed: 29),
-        body: surahAsync.when(
+      child: MissionScaffold(
+        extendToBottom: true,
+        child: surahAsync.when(
           data: (surah) {
             final ayah = surah.ayahs.firstWhere(
               (item) => item.id == ayahId,
               orElse: () => surah.ayahs.first,
             );
 
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          IllustrationFrame(
-                            size: 190,
-                            child: const AtlasIllustration(kind: AtlasIllustrationKind.lesson),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LessonNavBar(
+                  title: '${surah.name} - verse ${ayah.id}',
+                  leadingIcon: Icons.close_rounded,
+                  onLeadingTap: () =>
+                      context.go('/child/surah/$surahId/journey'),
+                ),
+                const SizedBox(height: MissionSpacing.md),
+                const LessonStarsBar(total: 6, filled: 1),
+                const SizedBox(height: MissionSpacing.md),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: MissionSpacing.xxl),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        LessonMediaPanel(
+                          caption: 'Tap anywhere to play guided verse audio.',
+                          onTap: () => _showAudioPlaceholder(context),
+                          onAudioTap: () => _showAudioPlaceholder(context),
+                        ),
+                        const SizedBox(height: MissionSpacing.md),
+                        MissionCard(
+                          padding: const EdgeInsets.all(MissionSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                ayah.arabic,
+                                textAlign: TextAlign.center,
+                                style: MissionText.heading(colors.textPrimary)
+                                    .copyWith(
+                                      fontFamily: 'NotoNaskhArabic',
+                                      height: 1.65,
+                                    ),
+                              ),
+                              const SizedBox(height: MissionSpacing.sm),
+                              Container(
+                                height: 1,
+                                color: colors.line.withValues(alpha: 0.45),
+                              ),
+                              const SizedBox(height: MissionSpacing.sm),
+                              Text(
+                                ayah.transliteration,
+                                textAlign: TextAlign.center,
+                                style: MissionText.body(colors.textPrimary),
+                              ),
+                              const SizedBox(height: MissionSpacing.xs),
+                              Text(
+                                ayah.translation,
+                                textAlign: TextAlign.center,
+                                style: MissionText.body(colors.textSecondary),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppCard(
-                            variant: AppCardVariant.elevated,
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  'AYAH ${ayah.id}',
-                                  style: Theme.of(context).textTheme.labelMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  ayah.arabic,
-                                  style: AppTextStyles.arabicTitle.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  ayah.transliteration,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  ayah.translation,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: MissionSpacing.md),
+                        MissionCard(
+                          padding: const EdgeInsets.all(MissionSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Meaning',
+                                style: MissionText.title(colors.textPrimary),
+                              ),
+                              const SizedBox(height: MissionSpacing.xs),
+                              Text(
+                                ayah.meaning,
+                                style: MissionText.body(colors.textSecondary),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppCard(
-                            variant: AppCardVariant.soft,
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Meaning', style: Theme.of(context).textTheme.headlineSmall),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(ayah.meaning, style: Theme.of(context).textTheme.bodyMedium),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: MissionSpacing.xl),
+                        MissionButton(
+                          label: 'Tap to recite',
+                          onPressed: () => context.push(
+                            '/child/surah/$surahId/ayah/$ayahId/recite',
                           ),
-                          const Spacer(),
-                          PrimaryButton(
-                            label: 'Practice recitation',
-                            onPressed: () => context.push('/child/surah/$surahId/ayah/$ayahId/recite'),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          SecondaryButton(
-                            label: 'Back',
-                            onPressed: () => context.pop(),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Text('Unable to load ayah.', style: Theme.of(context).textTheme.bodyMedium),
+          error: (_, __) => Center(
+            child: Text(
+              'Unable to load this verse.',
+              style: MissionText.body(colors.textSecondary),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showAudioPlaceholder(BuildContext context) {
+    // TODO(lesson-audio): wire verse-level guided playback from content/audio backend.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Audio playback placeholder.')),
     );
   }
 }

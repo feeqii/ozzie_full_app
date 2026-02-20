@@ -6,15 +6,14 @@ import '../../journey/models/journey_models.dart';
 import '../../journey/providers/journey_providers.dart';
 import '../../map/models/map_models.dart';
 import '../../map/providers/map_providers.dart';
-import '../../parent/utils/parent_access_gate.dart';
 import '../providers/child_providers.dart';
 import '../ui/mission_buttons.dart';
 import '../ui/mission_card.dart';
 import '../ui/mission_orbit_icon.dart';
 import '../ui/mission_scaffold.dart';
 import '../ui/mission_status_tag.dart';
-import '../ui/mission_top_bar.dart';
 import '../ui/mission_tokens.dart';
+import '../ui/lesson_widgets.dart';
 import 'surah_intro_screen.dart';
 
 class SurahJourneyScreen extends ConsumerWidget {
@@ -36,16 +35,9 @@ class SurahJourneyScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MissionTopBar(
-            child: child,
-            showBack: true,
-            onBack: () => context.pop(),
-            onProgress: () => context.push('/child/progress'),
-            onParentActions: () => openParentRouteWithPin(
-              context: context,
-              ref: ref,
-              nextRoute: '/parent/dashboard',
-            ),
+          LessonNavBar(
+            title: surahId == 1 ? 'Al-Fatiha' : 'Ayat Flow',
+            onLeadingTap: () => context.go('/child/home'),
           ),
           const SizedBox(height: MissionSpacing.md),
           Expanded(

@@ -1,148 +1,129 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_extensions.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/atlas_illustrations.dart';
-import '../../../core/ui/illustration_frame.dart';
-import '../../../core/ui/primary_button.dart';
-import '../../../core/ui/reward_card.dart';
-import '../../../core/ui/secondary_button.dart';
-import '../../../core/ui/stat_tile.dart';
+import '../../child/ui/mission_buttons.dart';
+import '../../child/ui/mission_card.dart';
+import '../../child/ui/mission_scaffold.dart';
+import '../../child/ui/mission_tokens.dart';
 import '../models/reward_event.dart';
 
 class RewardScreen extends StatelessWidget {
-  const RewardScreen({
-    super.key,
-    required this.args,
-  });
+  const RewardScreen({super.key, required this.args});
 
   final RewardScreenArgs args;
 
   @override
   Widget build(BuildContext context) {
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
     final event = args.event;
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Rewards', showBack: false),
-      contentPadding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.xl,
-      ),
-      background: const AtlasBackground(seed: 31),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final scheme = Theme.of(context).colorScheme;
-          final surfaces = context.surfaces;
+    final xp = _xpFor(event.type, event.score);
 
-          return SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      event.title,
-                      style: Theme.of(context).textTheme.displayLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      event.message,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.78),
+    return MissionScaffold(
+      extendToBottom: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: MissionSpacing.xxl),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                child: MissionCard(
+                  padding: const EdgeInsets.all(MissionSpacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 130,
+                          height: 130,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.surface,
+                            border: Border.all(
+                              color: colors.line.withValues(alpha: 0.65),
+                              width: 1.2,
+                            ),
                           ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    Center(
-                      child: IllustrationFrame(
-                        size: 150,
-                        child: AtlasIllustration(kind: _illustrationFor(event.type)),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    RewardCard(
-                      title: event.title,
-                      subtitle: event.message,
-                      variant: _variantFor(event.type),
-                    ),
-                    if (event.score != null) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      StatTile(
-                        title: 'Score',
-                        value: '${event.score}%',
-                        variant: StatTileVariant.score,
-                      ),
-                    ],
-                    const Spacer(),
-                    PrimaryButton(
-                      label: args.primaryLabel,
-                      onPressed: () => context.go(args.primaryRoute),
-                    ),
-                    if (args.secondaryLabel != null && args.secondaryRoute != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      SecondaryButton(
-                        label: args.secondaryLabel!,
-                        onPressed: () => context.go(args.secondaryRoute!),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: surfaces.card.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: surfaces.outlineStrong.withValues(alpha: 0.14),
-                          width: 1.2,
+                          child: Icon(
+                            _iconFor(event.type),
+                            size: 56,
+                            color: colors.textPrimary,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        event.type == RewardType.trophy
-                            ? 'A trophy means a big milestone. Take a moment to celebrate, then head back to the map.'
-                            : 'Collect rewards by practicing every day. Your progress unlocks new planets and levels.',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: scheme.onSurface.withValues(alpha: 0.74),
-                            ),
+                      const SizedBox(height: MissionSpacing.lg),
+                      Text(
+                        event.title.toUpperCase(),
                         textAlign: TextAlign.center,
+                        style: MissionText.heading(
+                          colors.textPrimary,
+                        ).copyWith(fontSize: 42),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: MissionSpacing.sm),
+                      Text(
+                        event.message,
+                        textAlign: TextAlign.center,
+                        style: MissionText.body(colors.textSecondary),
+                      ),
+                      const SizedBox(height: MissionSpacing.lg),
+                      Text(
+                        'You have earned\n$xp Xps (Hasanat)',
+                        textAlign: TextAlign.center,
+                        style: MissionText.title(
+                          colors.textPrimary,
+                        ).copyWith(fontSize: 30),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          );
-        },
+          ),
+          MissionButton(
+            label: args.primaryLabel,
+            onPressed: () => context.go(args.primaryRoute),
+          ),
+          if (args.secondaryLabel != null && args.secondaryRoute != null) ...[
+            const SizedBox(height: MissionSpacing.sm),
+            MissionButton(
+              label: args.secondaryLabel!,
+              variant: MissionButtonVariant.outline,
+              onPressed: () => context.go(args.secondaryRoute!),
+            ),
+          ],
+          const SizedBox(height: MissionSpacing.md),
+        ],
       ),
     );
   }
 
-  RewardCardVariant _variantFor(RewardType type) {
-    switch (type) {
-      case RewardType.hasanat:
-        return RewardCardVariant.hasanat;
-      case RewardType.badge:
-        return RewardCardVariant.badge;
-      case RewardType.trophy:
-        return RewardCardVariant.trophy;
-    }
+  int _xpFor(RewardType type, int? score) {
+    final base = switch (type) {
+      RewardType.hasanat => 180,
+      RewardType.badge => 220,
+      RewardType.trophy => 300,
+    };
+
+    final s = score ?? 80;
+    final bonus = switch (s) {
+      >= 95 => 70,
+      >= 90 => 50,
+      >= 80 => 30,
+      >= 70 => 20,
+      _ => 0,
+    };
+
+    return base + bonus;
   }
 
-  AtlasIllustrationKind _illustrationFor(RewardType type) {
+  IconData _iconFor(RewardType type) {
     switch (type) {
       case RewardType.hasanat:
-        return AtlasIllustrationKind.hasanat;
+        return Icons.auto_awesome;
       case RewardType.badge:
-        return AtlasIllustrationKind.badge;
+        return Icons.verified_outlined;
       case RewardType.trophy:
-        return AtlasIllustrationKind.trophy;
+        return Icons.emoji_events_outlined;
     }
   }
 }

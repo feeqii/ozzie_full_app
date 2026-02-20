@@ -554,9 +554,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Rewards'), findsOneWidget);
-    expect(find.text('Stamped!'), findsWidgets);
-    expect(find.text('95%'), findsOneWidget);
+    expect(find.text('STAMPED!'), findsWidgets);
+    expect(find.textContaining('You have earned'), findsOneWidget);
   });
 
   testWidgets('AyahLearnScreen renders illustration-first lesson layout', (
@@ -578,8 +577,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('AYAH'), findsOneWidget);
-    expect(find.textContaining('Practice recitation'), findsOneWidget);
+    expect(find.textContaining('Tap to recite'), findsOneWidget);
   });
 
   testWidgets('RecitationPracticeScreen renders without plugin exceptions', (
@@ -604,8 +602,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Practice'), findsOneWidget);
-    expect(find.textContaining('Back to learn'), findsOneWidget);
+    expect(find.textContaining('Tap to recite'), findsOneWidget);
   });
 
   testWidgets(
@@ -631,7 +628,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text(QuizType.mini1.label), findsOneWidget);
       expect(find.text('MEMORIZATION'), findsOneWidget);
       expect(find.textContaining('Recite the two verses'), findsOneWidget);
     },

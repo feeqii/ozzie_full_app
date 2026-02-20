@@ -48,11 +48,7 @@ class MissionColors {
     primaryGradient: LinearGradient(
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
-      colors: [
-        MissionPalette.orange,
-        MissionPalette.green,
-        MissionPalette.blue,
-      ],
+      colors: [MissionPalette.orange, Color(0xFFC39264), MissionPalette.green],
     ),
     primaryText: MissionPalette.light,
   );
@@ -68,11 +64,7 @@ class MissionColors {
     primaryGradient: LinearGradient(
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
-      colors: [
-        MissionPalette.orange,
-        MissionPalette.green,
-        MissionPalette.blue,
-      ],
+      colors: [MissionPalette.orange, Color(0xFF9A7D5E), MissionPalette.green],
     ),
     primaryText: MissionPalette.light,
   );

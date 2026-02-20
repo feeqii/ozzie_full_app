@@ -7,14 +7,24 @@ enum QuizQuestionType {
   completeVerse,
   wordOrdering,
   comprehension,
+  readingComprehension,
 }
 
 class QuizQuestionOption {
-  const QuizQuestionOption({required this.id, required this.label});
+  const QuizQuestionOption({
+    required this.id,
+    required this.label,
+    this.subtitle,
+    this.audioRef,
+  });
 
   final String id;
   final String label;
+  final String? subtitle;
+  final String? audioRef;
 }
+
+enum QuizWrongFeedbackStyle { motivational, detailed }
 
 class QuizQuestion {
   const QuizQuestion({
@@ -100,6 +110,7 @@ class QuizState {
     this.lockedUntil,
     this.nextStage,
     this.rewardEvent,
+    this.wrongFeedbackStyle,
   });
 
   final String childId;
@@ -117,6 +128,7 @@ class QuizState {
   final DateTime? lockedUntil;
   final String? nextStage;
   final RewardEvent? rewardEvent;
+  final QuizWrongFeedbackStyle? wrongFeedbackStyle;
 
   QuizState copyWith({
     int? currentIndex,
@@ -134,6 +146,8 @@ class QuizState {
     String? nextStage,
     RewardEvent? rewardEvent,
     bool clearReward = false,
+    QuizWrongFeedbackStyle? wrongFeedbackStyle,
+    bool clearWrongFeedbackStyle = false,
   }) {
     return QuizState(
       childId: childId,
@@ -153,6 +167,9 @@ class QuizState {
       lockedUntil: clearLockedUntil ? null : lockedUntil ?? this.lockedUntil,
       nextStage: nextStage ?? this.nextStage,
       rewardEvent: clearReward ? null : rewardEvent ?? this.rewardEvent,
+      wrongFeedbackStyle: clearWrongFeedbackStyle
+          ? null
+          : wrongFeedbackStyle ?? this.wrongFeedbackStyle,
     );
   }
 }
