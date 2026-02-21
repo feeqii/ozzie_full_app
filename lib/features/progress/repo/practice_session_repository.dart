@@ -10,15 +10,13 @@ class PracticeSessionRepository {
   Future<String> startSession({required String childId}) async {
     final accessToken = _client.auth.currentSession?.accessToken;
     final headers = (accessToken != null && accessToken.isNotEmpty)
-        ? {'Authorization': 'Bearer $accessToken'}
+        ? {'x-user-jwt': 'Bearer $accessToken'}
         : null;
 
     final response = await _client.functions.invoke(
       'session_start',
       headers: headers,
-      body: {
-        'child_id': childId,
-      },
+      body: {'child_id': childId},
     );
 
     final data = response.data;
@@ -38,19 +36,19 @@ class PracticeSessionRepository {
     return sessionId;
   }
 
-  Future<void> endSession({required String childId, required String sessionId}) async {
+  Future<void> endSession({
+    required String childId,
+    required String sessionId,
+  }) async {
     final accessToken = _client.auth.currentSession?.accessToken;
     final headers = (accessToken != null && accessToken.isNotEmpty)
-        ? {'Authorization': 'Bearer $accessToken'}
+        ? {'x-user-jwt': 'Bearer $accessToken'}
         : null;
 
     final response = await _client.functions.invoke(
       'session_end',
       headers: headers,
-      body: {
-        'child_id': childId,
-        'session_id': sessionId,
-      },
+      body: {'child_id': childId, 'session_id': sessionId},
     );
 
     final data = response.data;
@@ -65,4 +63,3 @@ class PracticeSessionRepository {
     throw Exception('Unexpected response from session_end.');
   }
 }
-

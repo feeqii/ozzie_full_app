@@ -18,6 +18,10 @@ class ActionIconButton extends StatefulWidget {
     this.backgroundColor,
     this.borderColor,
     this.iconColor,
+    this.innerShadowColor,
+    this.overlayColor,
+    this.size = 42,
+    this.iconSize = 20,
     this.haptic = true,
   });
 
@@ -28,6 +32,10 @@ class ActionIconButton extends StatefulWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? iconColor;
+  final Color? innerShadowColor;
+  final Color? overlayColor;
+  final double size;
+  final double iconSize;
   final bool haptic;
 
   @override
@@ -55,6 +63,10 @@ class _ActionIconButtonState extends State<ActionIconButton> {
     final bg = widget.backgroundColor ?? surfaces.card;
     final border = widget.borderColor ?? surfaces.outlineStrong;
     final iconColor = widget.iconColor ?? scheme.onSurface;
+    final innerShadowColor =
+        widget.innerShadowColor ?? AppColors.actionInnerShadowBlue;
+    final overlayColor =
+        widget.overlayColor ?? scheme.primary.withValues(alpha: 0.08);
 
     final double translateY = _pressed ? 1.5 : 0;
     final double shadowOffsetY = _pressed ? 2 : 5;
@@ -68,7 +80,7 @@ class _ActionIconButtonState extends State<ActionIconButton> {
         borderRadius: radius,
         border: Border.all(color: border, width: 1.6),
         boxShadow: widget.useInnerShadow
-            ? AppShadows.inner(color: AppColors.actionInnerShadowBlue, blur: 10)
+            ? AppShadows.inner(color: innerShadowColor, blur: 10)
             : [
                 BoxShadow(
                   color: surfaces.shadow,
@@ -88,14 +100,16 @@ class _ActionIconButtonState extends State<ActionIconButton> {
                 },
           onHighlightChanged: widget.onPressed == null ? null : _setPressed,
           borderRadius: radius,
-          overlayColor: WidgetStatePropertyAll(scheme.primary.withValues(alpha: 0.08)),
-          child: Padding(
-            padding: const EdgeInsets.all(11),
-            child: Icon(widget.icon, color: iconColor, size: 20),
+          overlayColor: WidgetStatePropertyAll(overlayColor),
+          child: SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: Center(
+              child: Icon(widget.icon, color: iconColor, size: widget.iconSize),
+            ),
           ),
         ),
       ),
     );
   }
 }
-

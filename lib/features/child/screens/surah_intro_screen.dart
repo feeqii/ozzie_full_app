@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/ui/app_app_bar.dart';
-import '../../../core/ui/app_card.dart';
-import '../../../core/ui/app_scaffold.dart';
-import '../../../core/ui/atlas_background.dart';
-import '../../../core/ui/atlas_illustrations.dart';
-import '../../../core/ui/illustration_frame.dart';
-import '../../../core/ui/primary_button.dart';
 import '../../map/providers/map_providers.dart';
 import '../providers/child_providers.dart';
+import '../ui/lesson_widgets.dart';
+import '../ui/mission_buttons.dart';
+import '../ui/mission_card.dart';
+import '../ui/mission_scaffold.dart';
+import '../ui/mission_tokens.dart';
 
 class SurahIntroArgs {
   const SurahIntroArgs({required this.surahId, required this.levelId});
@@ -34,67 +31,89 @@ class SurahIntroScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final child = ref.watch(selectedChildProvider);
     final repo = ref.watch(mapRepositoryProvider);
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
 
-    return AppScaffold(
-      appBar: const AppAppBar(title: 'Surah Introduction'),
-      background: const AtlasBackground(seed: 33),
-      body: Center(
-        child: AppCard(
-          variant: AppCardVariant.elevated,
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Center(
-                child: IllustrationFrame(
-                  size: 140,
-                  child: AtlasIllustration(kind: AtlasIllustrationKind.lesson),
+    return MissionScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LessonNavBar(
+            title: 'Surah Introduction',
+            onLeadingTap: () => context.pop(),
+          ),
+          const SizedBox(height: MissionSpacing.xl),
+          Expanded(
+            child: Center(
+              child: MissionCard(
+                padding: const EdgeInsets.all(MissionSpacing.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.background.withValues(alpha: 0.45),
+                          border: Border.all(
+                            color: colors.line.withValues(alpha: 0.45),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.menu_book_rounded,
+                          size: 58,
+                          color: colors.textPrimary.withValues(alpha: 0.82),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: MissionSpacing.lg),
+                    Text(
+                      'Before we begin',
+                      style: MissionText.heading(colors.textPrimary),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: MissionSpacing.sm),
+                    Text(
+                      'Let\'s learn what this surah is about, then we\'ll start verse by verse.',
+                      style: MissionText.body(colors.textSecondary),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: MissionSpacing.lg),
+                    MissionButton(
+                      label: 'I understand, continue',
+                      onPressed: child == null
+                          ? null
+                          : () async {
+                              try {
+                                await repo.completeLevel(
+                                  childId: child.id,
+                                  levelId: levelId,
+                                );
+                                if (context.mounted) {
+                                  context.pop();
+                                }
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Could not continue right now. Please try again.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Before we begin',
-                style: Theme.of(context).textTheme.displayLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Let\'s learn what this surah is about, then we\'ll start verse by verse.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'I understand, continue',
-                isDisabled: child == null,
-                onPressed: child == null
-                    ? null
-                    : () async {
-                        try {
-                          await repo.completeLevel(
-                            childId: child.id,
-                            levelId: levelId,
-                          );
-                          if (context.mounted) {
-                            context.pop();
-                          }
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Could not continue right now. Please try again.',
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      },
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

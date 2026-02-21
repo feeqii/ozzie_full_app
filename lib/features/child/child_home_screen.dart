@@ -86,82 +86,119 @@ class _ChildHomeScreenState extends ConsumerState<ChildHomeScreen> {
                     children: [
                       MissionSpeechBubble(text: message),
                       const SizedBox(height: MissionSpacing.md),
-                      Center(
-                        child: GestureDetector(
-                          onTap: selected.unlocked
-                              ? () => context.push(
-                                  '/child/map/galaxy/${selected.id}',
-                                )
-                              : null,
-                          child: Stack(
-                            alignment: Alignment.center,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          final curved = CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          );
+                          return FadeTransition(
+                            opacity: curved,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.03),
+                                end: Offset.zero,
+                              ).animate(curved),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey<int>(selected.id),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                width: 214,
-                                height: 214,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: colors.surface.withValues(alpha: 0.44),
-                                  border: Border.all(
-                                    color: colors.line.withValues(alpha: 0.35),
-                                    width: 1.2,
+                              Center(
+                                child: GestureDetector(
+                                  onTap: selected.unlocked
+                                      ? () => context.push(
+                                          '/child/map/galaxy/${selected.id}',
+                                        )
+                                      : null,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Container(
+                                        width: 214,
+                                        height: 214,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: colors.surface.withValues(
+                                            alpha: 0.44,
+                                          ),
+                                          border: Border.all(
+                                            color: colors.line.withValues(
+                                              alpha: 0.35,
+                                            ),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                      ),
+                                      MissionOrbitIcon(
+                                        size: 152,
+                                        opacity: selected.unlocked ? 1 : 0.45,
+                                      ),
+                                      if (!selected.unlocked)
+                                        Container(
+                                          width: 62,
+                                          height: 62,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: colors.surface,
+                                            border: Border.all(
+                                              color: colors.textPrimary,
+                                              width: 1.2,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.lock_rounded,
+                                            color: colors.textPrimary,
+                                            size: 26,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                               ),
-                              MissionOrbitIcon(
-                                size: 152,
-                                opacity: selected.unlocked ? 1 : 0.45,
+                              const SizedBox(height: MissionSpacing.md),
+                              Center(
+                                child: Text(
+                                  selected.nameEn.toUpperCase(),
+                                  style: MissionText.heading(
+                                    colors.textPrimary,
+                                  ),
+                                ),
                               ),
-                              if (!selected.unlocked)
-                                Container(
-                                  width: 62,
-                                  height: 62,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: colors.surface,
-                                    border: Border.all(
-                                      color: colors.textPrimary,
-                                      width: 1.2,
+                              if ((selected.nameAr ?? '').isNotEmpty)
+                                Center(
+                                  child: Text(
+                                    selected.nameAr!,
+                                    style: MissionText.body(
+                                      colors.textSecondary,
                                     ),
                                   ),
-                                  child: Icon(
-                                    Icons.lock_rounded,
-                                    color: colors.textPrimary,
-                                    size: 26,
-                                  ),
                                 ),
+                              const SizedBox(height: MissionSpacing.sm),
+                              Center(
+                                child: MissionStatusTag(
+                                  label: mapState.slotsRemaining > 0
+                                      ? '${mapState.slotsRemaining} active slots left'
+                                      : 'No active slots left',
+                                  icon: Icons.auto_awesome,
+                                ),
+                              ),
+                              const SizedBox(height: MissionSpacing.md),
+                              Text(
+                                subtitle,
+                                textAlign: TextAlign.center,
+                                style: MissionText.body(colors.textSecondary),
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: MissionSpacing.md),
-                      Center(
-                        child: Text(
-                          selected.nameEn.toUpperCase(),
-                          style: MissionText.heading(colors.textPrimary),
-                        ),
-                      ),
-                      if ((selected.nameAr ?? '').isNotEmpty)
-                        Center(
-                          child: Text(
-                            selected.nameAr!,
-                            style: MissionText.body(colors.textSecondary),
-                          ),
-                        ),
-                      const SizedBox(height: MissionSpacing.sm),
-                      Center(
-                        child: MissionStatusTag(
-                          label: mapState.slotsRemaining > 0
-                              ? '${mapState.slotsRemaining} active slots left'
-                              : 'No active slots left',
-                          icon: Icons.auto_awesome,
-                        ),
-                      ),
-                      const SizedBox(height: MissionSpacing.md),
-                      Text(
-                        subtitle,
-                        textAlign: TextAlign.center,
-                        style: MissionText.body(colors.textSecondary),
                       ),
                       const SizedBox(height: MissionSpacing.lg),
                       _GalaxySelectorRow(
@@ -211,6 +248,11 @@ class _GalaxySelectorRow extends StatelessWidget {
     final start = (selectedIndex - 1).clamp(0, galaxies.length - 1);
     final end = (start + 2).clamp(0, galaxies.length - 1);
     final visible = [for (var i = start; i <= end; i++) i];
+    final selectedVisibleIndex = visible.indexOf(selectedIndex);
+    final indicatorAlignmentX =
+        visible.length <= 1 || selectedVisibleIndex == -1
+        ? 0.0
+        : -1 + ((2 * selectedVisibleIndex) / (visible.length - 1));
 
     return Stack(
       alignment: Alignment.topCenter,
@@ -224,46 +266,117 @@ class _GalaxySelectorRow extends StatelessWidget {
             color: colors.line.withValues(alpha: 0.6),
           ),
         ),
+        Positioned(
+          top: 33,
+          left: 24,
+          right: 24,
+          child: IgnorePointer(
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment(indicatorAlignmentX, 0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 260),
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [MissionPalette.orange, MissionPalette.green],
+                  ),
+                  border: Border.all(color: colors.surfaceElevated, width: 1.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: MissionPalette.orange.withValues(alpha: 0.24),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
         Row(
           children: [
             for (final index in visible)
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => onSelect(index),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: index == selectedIndex ? 84 : 70,
-                        height: index == selectedIndex ? 84 : 70,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colors.surface,
-                          border: Border.all(
-                            color: index == selectedIndex
-                                ? colors.textPrimary
-                                : colors.line,
-                            width: index == selectedIndex ? 1.4 : 1.0,
+              Builder(
+                builder: (context) {
+                  final isSelected = index == selectedIndex;
+                  final labelColor = isSelected
+                      ? colors.textPrimary
+                      : colors.textSecondary;
+
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onSelect(index),
+                      child: Column(
+                        children: [
+                          AnimatedScale(
+                            duration: const Duration(milliseconds: 230),
+                            curve: Curves.easeOutBack,
+                            scale: isSelected ? 1 : 0.92,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 230),
+                              curve: Curves.easeOutCubic,
+                              width: isSelected ? 84 : 70,
+                              height: isSelected ? 84 : 70,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colors.surface,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? MissionPalette.orange
+                                      : colors.line,
+                                  width: isSelected ? 1.8 : 1.0,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: MissionPalette.orange
+                                              .withValues(alpha: 0.18),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: AnimatedScale(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                  scale: isSelected ? 1 : 0.92,
+                                  child: MissionOrbitIcon(
+                                    size: isSelected ? 52 : 42,
+                                    opacity: galaxies[index].unlocked ? 1 : 0.4,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Center(
-                          child: MissionOrbitIcon(
-                            size: index == selectedIndex ? 52 : 42,
-                            opacity: galaxies[index].unlocked ? 1 : 0.4,
+                          const SizedBox(height: MissionSpacing.xs),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            style: MissionText.micro(
+                              labelColor,
+                            ).copyWith(letterSpacing: isSelected ? 0.6 : 0.3),
+                            child: Text(
+                              galaxies[index].nameEn.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              textScaler: const TextScaler.linear(1),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: MissionSpacing.xs),
-                      Text(
-                        galaxies[index].nameEn.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        textScaler: const TextScaler.linear(1),
-                        style: MissionText.micro(colors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
           ],
         ),

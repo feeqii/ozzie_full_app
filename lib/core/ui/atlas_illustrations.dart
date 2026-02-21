@@ -26,11 +26,13 @@ class AtlasIllustration extends StatelessWidget {
     required this.kind,
     this.primary,
     this.accent,
+    this.glow,
   });
 
   final AtlasIllustrationKind kind;
   final Color? primary;
   final Color? accent;
+  final Color? glow;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +45,7 @@ class AtlasIllustration extends StatelessWidget {
           kind: kind,
           primary: primary ?? scheme.onSurface,
           accent: accent ?? scheme.primary,
-          glow: surfaces.mapGlow,
+          glow: glow ?? surfaces.mapGlow,
           fog: surfaces.mapFog,
         ),
         child: const SizedBox.expand(),
@@ -146,17 +148,35 @@ class _AtlasIllustrationPainter extends CustomPainter {
     final ink = _stroke(primary.withValues(alpha: 0.88), 3.4);
     final soft = _fill(accent.withValues(alpha: 0.10));
 
-    final left = RRect.fromRectAndRadius(const Rect.fromLTWH(16, 26, 32, 46), const Radius.circular(8));
-    final right = RRect.fromRectAndRadius(const Rect.fromLTWH(52, 26, 32, 46), const Radius.circular(8));
+    final left = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(16, 26, 32, 46),
+      const Radius.circular(8),
+    );
+    final right = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(52, 26, 32, 46),
+      const Radius.circular(8),
+    );
     canvas.drawRRect(left, soft);
     canvas.drawRRect(right, soft);
     canvas.drawRRect(left, ink);
     canvas.drawRRect(right, ink);
 
     // Spine + page lines.
-    canvas.drawLine(const Offset(50, 28), const Offset(50, 70), _stroke(primary.withValues(alpha: 0.55), 2.2));
-    canvas.drawLine(const Offset(22, 38), const Offset(42, 38), _stroke(primary.withValues(alpha: 0.35), 2.0));
-    canvas.drawLine(const Offset(58, 44), const Offset(78, 44), _stroke(primary.withValues(alpha: 0.35), 2.0));
+    canvas.drawLine(
+      const Offset(50, 28),
+      const Offset(50, 70),
+      _stroke(primary.withValues(alpha: 0.55), 2.2),
+    );
+    canvas.drawLine(
+      const Offset(22, 38),
+      const Offset(42, 38),
+      _stroke(primary.withValues(alpha: 0.35), 2.0),
+    );
+    canvas.drawLine(
+      const Offset(58, 44),
+      const Offset(78, 44),
+      _stroke(primary.withValues(alpha: 0.35), 2.0),
+    );
 
     // Small "navigator star" bookmark.
     _sparkle(
@@ -165,35 +185,88 @@ class _AtlasIllustrationPainter extends CustomPainter {
       5.2,
       _fill(glow.withValues(alpha: 0.9)),
     );
-    canvas.drawCircle(const Offset(28, 74), 2.4, _fill(primary.withValues(alpha: 0.28)));
+    canvas.drawCircle(
+      const Offset(28, 74),
+      2.4,
+      _fill(primary.withValues(alpha: 0.28)),
+    );
   }
 
   void _paintRecite(Canvas canvas) {
-    final outline = _stroke(primary.withValues(alpha: 0.9), 3.4);
-    final soft = _fill(accent.withValues(alpha: 0.12));
+    final shell = _stroke(primary.withValues(alpha: 0.9), 3.0);
+    final shellSoft = _fill(primary.withValues(alpha: 0.06));
+    final accentFill = _fill(accent.withValues(alpha: 0.2));
 
-    final body = RRect.fromRectAndRadius(const Rect.fromLTWH(38, 22, 24, 36), const Radius.circular(12));
-    canvas.drawRRect(body, soft);
-    canvas.drawRRect(body, outline);
+    // Soft backplate to make the icon feel less mechanical.
+    canvas.drawCircle(
+      const Offset(44, 42),
+      24,
+      _fill(accent.withValues(alpha: 0.1)),
+    );
 
-    // Stem + base.
-    canvas.drawLine(const Offset(50, 58), const Offset(50, 72), outline);
-    final base = RRect.fromRectAndRadius(const Rect.fromLTWH(36, 72, 28, 10), const Radius.circular(6));
-    canvas.drawRRect(base, _fill(primary.withValues(alpha: 0.08)));
-    canvas.drawRRect(base, _stroke(primary.withValues(alpha: 0.65), 2.6));
+    // Capsule microphone body.
+    final body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(33, 18, 22, 40),
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(body, shellSoft);
+    canvas.drawRRect(body, shell);
 
-    // Sound waves.
-    final wave = _stroke(glow.withValues(alpha: 0.85), 2.4);
-    canvas.drawArc(Rect.fromCircle(center: const Offset(50, 40), radius: 26), -0.55, 1.10, false, wave);
-    canvas.drawArc(Rect.fromCircle(center: const Offset(50, 40), radius: 34), -0.42, 0.84, false, wave);
-    canvas.drawCircle(const Offset(50, 16), 2.6, _fill(primary.withValues(alpha: 0.25)));
+    // Inner grille hint.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(38, 28, 12, 18),
+        const Radius.circular(6),
+      ),
+      accentFill,
+    );
+    canvas.drawLine(
+      const Offset(44, 58),
+      const Offset(44, 72),
+      _stroke(primary.withValues(alpha: 0.86), 2.8),
+    );
+
+    // Base.
+    final foot = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(30, 72, 28, 11),
+      const Radius.circular(7),
+    );
+    canvas.drawRRect(foot, _fill(primary.withValues(alpha: 0.1)));
+    canvas.drawRRect(foot, _stroke(primary.withValues(alpha: 0.62), 2.2));
+
+    // Wave arcs are intentionally warm/neutral to avoid blue tones.
+    final wave1 = _stroke(accent.withValues(alpha: 0.9), 2.6);
+    final wave2 = _stroke(glow.withValues(alpha: 0.84), 2.4);
+    canvas.drawArc(
+      Rect.fromCircle(center: const Offset(48, 39), radius: 24),
+      -0.62,
+      1.03,
+      false,
+      wave1,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: const Offset(48, 39), radius: 31),
+      -0.48,
+      0.78,
+      false,
+      wave2,
+    );
+
+    canvas.drawCircle(
+      const Offset(62, 24),
+      3.0,
+      _fill(accent.withValues(alpha: 0.58)),
+    );
   }
 
   void _paintQuiz(Canvas canvas) {
     final outline = _stroke(primary.withValues(alpha: 0.86), 3.2);
     final soft = _fill(accent.withValues(alpha: 0.10));
 
-    final bubble = RRect.fromRectAndRadius(const Rect.fromLTWH(18, 22, 64, 44), const Radius.circular(14));
+    final bubble = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(18, 22, 64, 44),
+      const Radius.circular(14),
+    );
     canvas.drawRRect(bubble, soft);
     canvas.drawRRect(bubble, outline);
 
@@ -214,10 +287,23 @@ class _AtlasIllustrationPainter extends CustomPainter {
       ..cubicTo(55, 45, 51, 46, 51, 50)
       ..lineTo(51, 52);
     canvas.drawPath(q, _stroke(glow.withValues(alpha: 0.95), 4.4));
-    canvas.drawCircle(const Offset(51, 58), 2.7, _fill(glow.withValues(alpha: 0.95)));
+    canvas.drawCircle(
+      const Offset(51, 58),
+      2.7,
+      _fill(glow.withValues(alpha: 0.95)),
+    );
 
-    _sparkle(canvas, const Offset(78, 18), 4.0, _fill(primary.withValues(alpha: 0.18)));
-    canvas.drawCircle(const Offset(26, 18), 2.6, _fill(primary.withValues(alpha: 0.22)));
+    _sparkle(
+      canvas,
+      const Offset(78, 18),
+      4.0,
+      _fill(primary.withValues(alpha: 0.18)),
+    );
+    canvas.drawCircle(
+      const Offset(26, 18),
+      2.6,
+      _fill(primary.withValues(alpha: 0.22)),
+    );
   }
 
   void _paintSuccess(Canvas canvas) {
@@ -242,10 +328,21 @@ class _AtlasIllustrationPainter extends CustomPainter {
       ..moveTo(38, 52)
       ..lineTo(47, 61)
       ..lineTo(66, 40);
-    canvas.drawPath(check, _stroke(AppColors.success.withValues(alpha: 0.95), 6.0));
+    canvas.drawPath(
+      check,
+      _stroke(AppColors.success.withValues(alpha: 0.95), 6.0),
+    );
 
-    canvas.drawCircle(const Offset(70, 64), 2.2, _fill(primary.withValues(alpha: 0.22)));
-    canvas.drawCircle(const Offset(30, 38), 2.6, _fill(primary.withValues(alpha: 0.18)));
+    canvas.drawCircle(
+      const Offset(70, 64),
+      2.2,
+      _fill(primary.withValues(alpha: 0.22)),
+    );
+    canvas.drawCircle(
+      const Offset(30, 38),
+      2.6,
+      _fill(primary.withValues(alpha: 0.18)),
+    );
   }
 
   void _paintRetry(Canvas canvas) {
@@ -253,10 +350,19 @@ class _AtlasIllustrationPainter extends CustomPainter {
     final soft = _fill(accent.withValues(alpha: 0.08));
 
     canvas.drawCircle(const Offset(50, 50), 24, soft);
-    canvas.drawArc(Rect.fromCircle(center: const Offset(50, 50), radius: 26), 0.30, math.pi * 1.65, false, ring);
+    canvas.drawArc(
+      Rect.fromCircle(center: const Offset(50, 50), radius: 26),
+      0.30,
+      math.pi * 1.65,
+      false,
+      ring,
+    );
 
     // Arrow head.
-    final end = Offset(50 + math.cos(0.30 + math.pi * 1.65) * 26, 50 + math.sin(0.30 + math.pi * 1.65) * 26);
+    final end = Offset(
+      50 + math.cos(0.30 + math.pi * 1.65) * 26,
+      50 + math.sin(0.30 + math.pi * 1.65) * 26,
+    );
     final tip = end;
     final left = Offset(tip.dx - 6, tip.dy - 2);
     final right = Offset(tip.dx - 1, tip.dy - 7);
@@ -268,7 +374,12 @@ class _AtlasIllustrationPainter extends CustomPainter {
     canvas.drawPath(arrow, _fill(AppColors.danger.withValues(alpha: 0.9)));
 
     // Tiny star to hint "keep going".
-    _sparkle(canvas, const Offset(34, 32), 4.6, _fill(glow.withValues(alpha: 0.85)));
+    _sparkle(
+      canvas,
+      const Offset(34, 32),
+      4.6,
+      _fill(glow.withValues(alpha: 0.85)),
+    );
   }
 
   void _paintSleep(Canvas canvas) {
@@ -276,15 +387,26 @@ class _AtlasIllustrationPainter extends CustomPainter {
     final moonStroke = _stroke(primary.withValues(alpha: 0.72), 3.0);
 
     // Crescent via two circles.
-    final big = Path()..addOval(Rect.fromCircle(center: const Offset(46, 46), radius: 20));
-    final cut = Path()..addOval(Rect.fromCircle(center: const Offset(56, 40), radius: 18));
+    final big = Path()
+      ..addOval(Rect.fromCircle(center: const Offset(46, 46), radius: 20));
+    final cut = Path()
+      ..addOval(Rect.fromCircle(center: const Offset(56, 40), radius: 18));
     final crescent = Path.combine(PathOperation.difference, big, cut);
     canvas.drawPath(crescent, moonFill);
     canvas.drawPath(crescent, moonStroke);
 
     // Little stars.
-    _sparkle(canvas, const Offset(72, 28), 4.2, _fill(glow.withValues(alpha: 0.8)));
-    canvas.drawCircle(const Offset(72, 66), 2.2, _fill(primary.withValues(alpha: 0.22)));
+    _sparkle(
+      canvas,
+      const Offset(72, 28),
+      4.2,
+      _fill(glow.withValues(alpha: 0.8)),
+    );
+    canvas.drawCircle(
+      const Offset(72, 66),
+      2.2,
+      _fill(primary.withValues(alpha: 0.22)),
+    );
 
     // "Zzz" as three slanted marks.
     final z = _stroke(primary.withValues(alpha: 0.35), 2.2);
@@ -300,12 +422,32 @@ class _AtlasIllustrationPainter extends CustomPainter {
     // A gentle "swirl" coin.
     canvas.drawCircle(const Offset(50, 52), 22, soft);
     canvas.drawCircle(const Offset(50, 52), 22, outline);
-    canvas.drawArc(Rect.fromCircle(center: const Offset(50, 52), radius: 14), -0.6, 3.2, false, _stroke(glow.withValues(alpha: 0.85), 3.2));
+    canvas.drawArc(
+      Rect.fromCircle(center: const Offset(50, 52), radius: 14),
+      -0.6,
+      3.2,
+      false,
+      _stroke(glow.withValues(alpha: 0.85), 3.2),
+    );
 
     // Sparkles around.
-    _sparkle(canvas, const Offset(76, 24), 6.0, _fill(glow.withValues(alpha: 0.9)));
-    _sparkle(canvas, const Offset(26, 30), 4.6, _fill(primary.withValues(alpha: 0.18)));
-    canvas.drawCircle(const Offset(30, 78), 2.6, _fill(primary.withValues(alpha: 0.22)));
+    _sparkle(
+      canvas,
+      const Offset(76, 24),
+      6.0,
+      _fill(glow.withValues(alpha: 0.9)),
+    );
+    _sparkle(
+      canvas,
+      const Offset(26, 30),
+      4.6,
+      _fill(primary.withValues(alpha: 0.18)),
+    );
+    canvas.drawCircle(
+      const Offset(30, 78),
+      2.6,
+      _fill(primary.withValues(alpha: 0.22)),
+    );
   }
 
   void _paintBadge(Canvas canvas) {
@@ -315,7 +457,12 @@ class _AtlasIllustrationPainter extends CustomPainter {
     // Medal circle.
     canvas.drawCircle(const Offset(50, 42), 18, medalFill);
     canvas.drawCircle(const Offset(50, 42), 18, outline);
-    _sparkle(canvas, const Offset(50, 42), 7.2, _fill(glow.withValues(alpha: 0.9)));
+    _sparkle(
+      canvas,
+      const Offset(50, 42),
+      7.2,
+      _fill(glow.withValues(alpha: 0.9)),
+    );
 
     // Ribbons.
     final ribbon = Path()
@@ -351,28 +498,57 @@ class _AtlasIllustrationPainter extends CustomPainter {
     canvas.drawPath(cup, outline);
 
     // Handles.
-    canvas.drawArc(const Rect.fromLTWH(22, 28, 18, 22), math.pi * 0.6, math.pi * 0.8, false, outline);
-    canvas.drawArc(const Rect.fromLTWH(60, 28, 18, 22), math.pi * 1.6, math.pi * 0.8, false, outline);
+    canvas.drawArc(
+      const Rect.fromLTWH(22, 28, 18, 22),
+      math.pi * 0.6,
+      math.pi * 0.8,
+      false,
+      outline,
+    );
+    canvas.drawArc(
+      const Rect.fromLTWH(60, 28, 18, 22),
+      math.pi * 1.6,
+      math.pi * 0.8,
+      false,
+      outline,
+    );
 
     // Stem + base.
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(44, 64, 12, 10), const Radius.circular(6)),
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(44, 64, 12, 10),
+        const Radius.circular(6),
+      ),
       _fill(primary.withValues(alpha: 0.08)),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(44, 64, 12, 10), const Radius.circular(6)),
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(44, 64, 12, 10),
+        const Radius.circular(6),
+      ),
       _stroke(primary.withValues(alpha: 0.55), 2.2),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(32, 76, 36, 10), const Radius.circular(8)),
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(32, 76, 36, 10),
+        const Radius.circular(8),
+      ),
       _fill(primary.withValues(alpha: 0.06)),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(32, 76, 36, 10), const Radius.circular(8)),
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(32, 76, 36, 10),
+        const Radius.circular(8),
+      ),
       _stroke(primary.withValues(alpha: 0.50), 2.2),
     );
 
-    _sparkle(canvas, const Offset(50, 42), 6.4, _fill(glow.withValues(alpha: 0.85)));
+    _sparkle(
+      canvas,
+      const Offset(50, 42),
+      6.4,
+      _fill(glow.withValues(alpha: 0.85)),
+    );
   }
 
   void _paintLocked(Canvas canvas) {
@@ -380,16 +556,33 @@ class _AtlasIllustrationPainter extends CustomPainter {
     final bodyFill = _fill(fog.withValues(alpha: 0.35));
 
     // Body.
-    final body = RRect.fromRectAndRadius(const Rect.fromLTWH(32, 48, 36, 30), const Radius.circular(10));
+    final body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(32, 48, 36, 30),
+      const Radius.circular(10),
+    );
     canvas.drawRRect(body, bodyFill);
     canvas.drawRRect(body, outline);
 
     // Shackle.
-    canvas.drawArc(const Rect.fromLTWH(34, 26, 32, 32), math.pi, math.pi, false, outline);
+    canvas.drawArc(
+      const Rect.fromLTWH(34, 26, 32, 32),
+      math.pi,
+      math.pi,
+      false,
+      outline,
+    );
 
     // Keyhole.
-    canvas.drawCircle(const Offset(50, 62), 3.4, _fill(primary.withValues(alpha: 0.45)));
-    canvas.drawLine(const Offset(50, 65), const Offset(50, 72), _stroke(primary.withValues(alpha: 0.45), 2.0));
+    canvas.drawCircle(
+      const Offset(50, 62),
+      3.4,
+      _fill(primary.withValues(alpha: 0.45)),
+    );
+    canvas.drawLine(
+      const Offset(50, 65),
+      const Offset(50, 72),
+      _stroke(primary.withValues(alpha: 0.45), 2.0),
+    );
   }
 
   @override

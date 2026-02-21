@@ -47,7 +47,7 @@ class QuizRecitationRepository {
   }) async {
     final accessToken = _client.auth.currentSession?.accessToken;
     final headers = (accessToken != null && accessToken.isNotEmpty)
-        ? {'Authorization': 'Bearer $accessToken'}
+        ? {'x-user-jwt': 'Bearer $accessToken'}
         : null;
 
     final response = await _client.functions.invoke(

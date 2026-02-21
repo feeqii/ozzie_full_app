@@ -16,7 +16,7 @@ class MapRepository {
     if (accessToken == null || accessToken.isEmpty) {
       return null;
     }
-    return {'Authorization': 'Bearer $accessToken'};
+    return {'x-user-jwt': 'Bearer $accessToken'};
   }
 
   Future<MapState> fetchMapState({required String childId}) async {

@@ -67,22 +67,12 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   void _syncFunctionsAuth(String anonKey) {
     final client = Supabase.instance.client;
-    final session = client.auth.currentSession;
-    final token = session?.accessToken;
-    if (token != null && token.isNotEmpty) {
-      client.functions.setAuth(token);
-    } else {
-      client.functions.setAuth(anonKey);
-    }
+    client.functions.setAuth(anonKey);
 
     _authStateSubscription?.cancel();
-    _authStateSubscription = client.auth.onAuthStateChange.listen((data) {
-      final nextToken = data.session?.accessToken;
-      if (nextToken != null && nextToken.isNotEmpty) {
-        client.functions.setAuth(nextToken);
-      } else {
-        client.functions.setAuth(anonKey);
-      }
+    _authStateSubscription = client.auth.onAuthStateChange.listen((_) {
+      // Keep edge-layer auth set to anon for verify_jwt checks.
+      client.functions.setAuth(anonKey);
     });
   }
 
