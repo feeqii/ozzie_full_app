@@ -8,12 +8,13 @@ type LevelCompleteRequest = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-user-jwt, x-client-info, apikey, content-type",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing SUPABASE_URL or service role key");
@@ -43,9 +44,16 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace("Bearer ", "");
+    const bearerToken = authHeader.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : "";
+    const userJwtHeader = req.headers.get("x-user-jwt") ?? "";
+    const userToken = userJwtHeader.startsWith("Bearer ")
+      ? userJwtHeader.slice("Bearer ".length).trim()
+      : userJwtHeader.trim();
+    const token = userToken || (bearerToken && bearerToken !== supabaseAnonKey ? bearerToken : "");
     if (!token) {
-      return jsonResponse(401, { error: "Missing bearer token" });
+      return jsonResponse(401, { error: "Missing user auth token" });
     }
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -82,6 +90,13 @@ Deno.serve(async (req) => {
 
     if (levelError || !levelRow) {
       return jsonResponse(404, { error: "Level not found" });
+    }
+
+    // Guard against bypassing gated lesson/quiz progression via generic completion.
+    if ((levelRow.type as string) !== "SURAH_INTRO") {
+      return jsonResponse(409, {
+        error: "Use lesson or quiz completion endpoints for this level type",
+      });
     }
 
     const { data: progressRow, error: progressError } = await supabaseAdmin
@@ -162,4 +177,3 @@ Deno.serve(async (req) => {
     return jsonResponse(500, { error: error instanceof Error ? error.message : "Unexpected error" });
   }
 });
-

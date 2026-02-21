@@ -11,13 +11,13 @@ type LevelRecitationRequest = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-user-jwt, x-client-info, apikey, content-type",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
 const openAiEndpoint = Deno.env.get("OPENAI_TRANSCRIBE_ENDPOINT") ??
@@ -190,10 +190,17 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace("Bearer ", "");
+    const bearerToken = authHeader.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : "";
+    const userJwtHeader = req.headers.get("x-user-jwt") ?? "";
+    const userToken = userJwtHeader.startsWith("Bearer ")
+      ? userJwtHeader.slice("Bearer ".length).trim()
+      : userJwtHeader.trim();
+    const token = userToken || (bearerToken && bearerToken !== supabaseAnonKey ? bearerToken : "");
 
     if (!token) {
-      return jsonResponse(401, { error: "Missing bearer token" });
+      return jsonResponse(401, { error: "Missing user auth token" });
     }
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -235,6 +242,27 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const checkpointThreshold = (settingsRow?.pass_threshold as number | undefined) ?? 80;
+
+    const { data: surahRow, error: surahError } = await supabaseAdmin
+      .from("surah_progress")
+      .select("stage")
+      .eq("child_id", child_id)
+      .eq("surah_id", surah_id)
+      .maybeSingle();
+
+    if (surahError) {
+      return jsonResponse(500, { error: "Failed to load surah progress" });
+    }
+
+    const stage = (surahRow?.stage as string | undefined) ?? "LEARN_1_2";
+    const stageAllowsQuiz =
+      (quiz_type === "mini_1" && stage === "MINI_QUIZ_1") ||
+      (quiz_type === "mini_2" && stage === "MINI_QUIZ_2") ||
+      (quiz_type === "final" && stage === "FINAL_EXAM");
+
+    if (!stageAllowsQuiz) {
+      return jsonResponse(400, { error: "Quiz type not allowed for current state" });
+    }
 
     // Resolve level id (checkpoint/final) for this quiz type.
     const { data: levels, error: levelsError } = await supabaseAdmin
@@ -598,4 +626,3 @@ Deno.serve(async (req) => {
     return jsonResponse(500, { error: error instanceof Error ? error.message : "Unexpected error" });
   }
 });
-

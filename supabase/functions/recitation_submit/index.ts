@@ -15,13 +15,13 @@ type RecitationRequest = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-user-jwt, x-client-info, apikey, content-type",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey =
   Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
 const openAiEndpoint = Deno.env.get("OPENAI_TRANSCRIBE_ENDPOINT") ??
   "https://api.openai.com/v1/audio/transcriptions";
@@ -192,10 +192,17 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace("Bearer ", "");
+    const bearerToken = authHeader.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : "";
+    const userJwtHeader = req.headers.get("x-user-jwt") ?? "";
+    const userToken = userJwtHeader.startsWith("Bearer ")
+      ? userJwtHeader.slice("Bearer ".length).trim()
+      : userJwtHeader.trim();
+    const token = userToken || (bearerToken && bearerToken !== supabaseAnonKey ? bearerToken : "");
 
     if (!token) {
-      return jsonResponse(401, { error: "Missing bearer token" });
+      return jsonResponse(401, { error: "Missing user auth token" });
     }
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -290,6 +297,51 @@ Deno.serve(async (req) => {
         attemptsToday,
         attemptsLeftToday: 0,
       });
+    }
+
+    // Enforce level graph gating for verse recitation attempts.
+    // A verse can only be submitted when its lesson node is unlocked/in-progress/completed.
+    let verseLevelId: string | null = null;
+    const { data: verseLevel, error: verseLevelError } = await supabaseAdmin
+      .from("levels")
+      .select("id")
+      .eq("surah_id", surah_id)
+      .eq("type", "VERSE_LESSON")
+      .eq("ayah_id", ayah_id)
+      .maybeSingle();
+
+    if (verseLevelError) {
+      return jsonResponse(500, { error: "Failed to resolve verse level" });
+    }
+
+    if (verseLevel?.id) {
+      verseLevelId = verseLevel.id as string;
+      const { data: verseLevelProgress, error: verseLevelProgressError } = await supabaseAdmin
+        .from("child_level_progress")
+        .select("status, locked_until")
+        .eq("child_id", child_id)
+        .eq("level_id", verseLevelId)
+        .maybeSingle();
+
+      if (verseLevelProgressError) {
+        return jsonResponse(500, { error: "Failed to load lesson progress" });
+      }
+
+      const levelLockedUntil = verseLevelProgress?.locked_until
+        ? new Date(verseLevelProgress.locked_until as string)
+        : null;
+      if (levelLockedUntil && levelLockedUntil.getTime() > Date.now()) {
+        return jsonResponse(200, {
+          locked_until: levelLockedUntil.toISOString(),
+          attemptsToday,
+          attemptsLeftToday: 0,
+        });
+      }
+
+      const levelStatus = (verseLevelProgress?.status as string | undefined) ?? "LOCKED";
+      if (levelStatus === "LOCKED") {
+        return jsonResponse(409, { error: "Lesson locked" });
+      }
     }
 
     const todayStart = new Date(`${today}T00:00:00.000Z`);
@@ -529,20 +581,12 @@ Deno.serve(async (req) => {
     }
 
     // Keep child_level_progress in sync when the new level graph exists.
-    const { data: levelRow } = await supabaseAdmin
-      .from("levels")
-      .select("id")
-      .eq("surah_id", surah_id)
-      .eq("type", "VERSE_LESSON")
-      .eq("ayah_id", ayah_id)
-      .maybeSingle();
-
-    if (levelRow?.id) {
+    if (verseLevelId) {
       // Insert into level_attempts (best-effort).
       try {
         await supabaseAdmin.from("level_attempts").insert({
           child_id,
-          level_id: levelRow.id,
+          level_id: verseLevelId,
           attempt_number_today: attemptNumberToday,
           score,
           passed,
@@ -558,7 +602,7 @@ Deno.serve(async (req) => {
         .from("child_level_progress")
         .select("status, completed_at")
         .eq("child_id", child_id)
-        .eq("level_id", levelRow.id)
+        .eq("level_id", verseLevelId)
         .maybeSingle();
 
       const existingStatus = (existingLevelProgress?.status as string | undefined) ?? "LOCKED";
@@ -572,7 +616,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from("child_level_progress").upsert(
         {
           child_id,
-          level_id: levelRow.id,
+          level_id: verseLevelId,
           status: nextStatus,
           attempts_today: attemptNumberToday,
           attempts_date: today,
