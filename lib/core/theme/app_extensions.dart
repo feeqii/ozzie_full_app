@@ -13,7 +13,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     required this.outline,
     required this.outlineStrong,
     required this.shadow,
-    required this.mapGradient,
     required this.mapGlow,
     required this.mapFog,
   });
@@ -42,9 +41,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// Shadow tint (not the shadow itself).
   final Color shadow;
 
-  /// Cosmic map background gradient.
-  final LinearGradient mapGradient;
-
   /// Glow tint used on active nodes and progress paths.
   final Color mapGlow;
 
@@ -61,17 +57,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
       outline: const Color(0x1A042748),
       outlineStrong: AppColors.textNavy,
       shadow: const Color(0x33000000),
-      mapGradient: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color(0xFF07162B), // midnight
-          Color(0xFF0A2B46), // deep ocean
-          Color(0xFF0C4F63), // teal haze
-          Color(0xFFFEF7E8), // atlas paper
-        ],
-        stops: [0, 0.42, 0.75, 1],
-      ),
       mapGlow: const Color(0xFF7AE7FF),
       mapFog: const Color(0x99C8D3DE),
     );
@@ -87,17 +72,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
       outline: const Color(0x33F6F3E6),
       outlineStrong: const Color(0xFFF6F3E6),
       shadow: const Color(0xAA000000),
-      mapGradient: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color(0xFF050E1C),
-          Color(0xFF07162B),
-          Color(0xFF0A2B46),
-          Color(0xFF0D4E63),
-        ],
-        stops: [0, 0.35, 0.7, 1],
-      ),
       mapGlow: const Color(0xFF7AE7FF),
       mapFog: const Color(0x660B213B),
     );
@@ -113,7 +87,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     Color? outline,
     Color? outlineStrong,
     Color? shadow,
-    LinearGradient? mapGradient,
     Color? mapGlow,
     Color? mapFog,
   }) {
@@ -126,7 +99,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
       outline: outline ?? this.outline,
       outlineStrong: outlineStrong ?? this.outlineStrong,
       shadow: shadow ?? this.shadow,
-      mapGradient: mapGradient ?? this.mapGradient,
       mapGlow: mapGlow ?? this.mapGlow,
       mapFog: mapFog ?? this.mapFog,
     );
@@ -144,7 +116,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
       outline: Color.lerp(outline, other.outline, t) ?? outline,
       outlineStrong: Color.lerp(outlineStrong, other.outlineStrong, t) ?? outlineStrong,
       shadow: Color.lerp(shadow, other.shadow, t) ?? shadow,
-      mapGradient: LinearGradient.lerp(mapGradient, other.mapGradient, t) ?? mapGradient,
       mapGlow: Color.lerp(mapGlow, other.mapGlow, t) ?? mapGlow,
       mapFog: Color.lerp(mapFog, other.mapFog, t) ?? mapFog,
     );
@@ -216,4 +187,3 @@ extension AppThemeContext on BuildContext {
   AppSurfaces get surfaces => Theme.of(this).extension<AppSurfaces>() ?? AppSurfaces.light();
   AppMotion get motion => Theme.of(this).extension<AppMotion>() ?? AppMotion.defaults;
 }
-

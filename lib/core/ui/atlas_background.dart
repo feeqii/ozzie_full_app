@@ -6,8 +6,8 @@ import '../theme/app_extensions.dart';
 
 /// A subtle "atlas paper" background for lesson/engine screens.
 ///
-/// This is intentionally calmer than [CosmicBackground]: it's still part of the
-/// same world (cartographic texture + tiny stars), but readable under UI.
+/// This keeps the cartographic texture + tiny stars aesthetic, but tuned for
+/// readability under content-heavy UI.
 class AtlasBackground extends StatelessWidget {
   const AtlasBackground({
     super.key,
