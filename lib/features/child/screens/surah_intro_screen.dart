@@ -71,9 +71,24 @@ class SurahIntroScreen extends ConsumerWidget {
                 onPressed: child == null
                     ? null
                     : () async {
-                        await repo.completeLevel(childId: child.id, levelId: levelId);
-                        if (context.mounted) {
-                          context.pop();
+                        try {
+                          await repo.completeLevel(
+                            childId: child.id,
+                            levelId: levelId,
+                          );
+                          if (context.mounted) {
+                            context.pop();
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Could not continue right now. Please try again.',
+                                ),
+                              ),
+                            );
+                          }
                         }
                       },
               ),

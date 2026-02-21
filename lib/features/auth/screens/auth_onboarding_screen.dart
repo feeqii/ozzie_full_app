@@ -104,45 +104,54 @@ class _AuthOnboardingScreenState extends State<AuthOnboardingScreen> {
                 return AnimatedOpacity(
                   duration: const Duration(milliseconds: 180),
                   opacity: index == _index ? 1 : 0.82,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: OnboardingSpacing.md,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Spacer(),
-                        _HeroOrb(icon: slide.icon, accent: slide.accent),
-                        const SizedBox(height: OnboardingSpacing.xl),
-                        Text(
-                          slide.title,
-                          style: OnboardingTypography.display(
-                            colors.textPrimary,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: OnboardingSpacing.md,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _HeroOrb(icon: slide.icon, accent: slide.accent),
+                              const SizedBox(height: OnboardingSpacing.xl),
+                              Text(
+                                slide.title,
+                                style: OnboardingTypography.display(
+                                  colors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: OnboardingSpacing.md),
+                              Text(
+                                slide.description,
+                                style: OnboardingTypography.body(
+                                  colors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: OnboardingSpacing.lg),
+                              ...slide.highlights.map(
+                                (text) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: OnboardingSpacing.sm,
+                                  ),
+                                  child: OnboardingHeroTile(
+                                    icon: Icons.check_circle_outline_rounded,
+                                    label: text,
+                                    accent: slide.accent,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: OnboardingSpacing.sm),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: OnboardingSpacing.md),
-                        Text(
-                          slide.description,
-                          style: OnboardingTypography.body(
-                            colors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: OnboardingSpacing.lg),
-                        ...slide.highlights.map(
-                          (text) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: OnboardingSpacing.sm,
-                            ),
-                            child: OnboardingHeroTile(
-                              icon: Icons.check_circle_outline_rounded,
-                              label: text,
-                              accent: slide.accent,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 );
               },

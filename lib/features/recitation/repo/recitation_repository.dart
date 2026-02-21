@@ -17,7 +17,9 @@ class RecitationRepository {
       throw Exception('Audio file not found.');
     }
 
-    await _client.storage.from('recitations').upload(
+    await _client.storage
+        .from('recitations')
+        .upload(
           storagePath,
           file,
           fileOptions: const FileOptions(contentType: 'audio/m4a'),
@@ -26,12 +28,11 @@ class RecitationRepository {
     return storagePath;
   }
 
-  String buildStoragePath({
-    required int surahId,
-    required int ayahId,
-  }) {
+  String buildStoragePath({required int surahId, required int ayahId}) {
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final randomSuffix = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+    final randomSuffix = DateTime.now().microsecondsSinceEpoch.toRadixString(
+      36,
+    );
     return 'surah_$surahId/ayah_$ayahId/${timestamp}_$randomSuffix.m4a';
   }
 
@@ -68,5 +69,32 @@ class RecitationRepository {
     }
 
     throw Exception('Unexpected response from recitation_submit.');
+  }
+
+  Future<Map<String, dynamic>> completeAyahLesson({
+    required String childId,
+    required int surahId,
+    required int ayahId,
+  }) async {
+    final accessToken = _client.auth.currentSession?.accessToken;
+    final headers = (accessToken != null && accessToken.isNotEmpty)
+        ? {'Authorization': 'Bearer $accessToken'}
+        : null;
+
+    final response = await _client.functions.invoke(
+      'ayah_lesson_complete',
+      headers: headers,
+      body: {'child_id': childId, 'surah_id': surahId, 'ayah_id': ayahId},
+    );
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is String) {
+      return json.decode(data) as Map<String, dynamic>;
+    }
+
+    throw Exception('Unexpected response from ayah_lesson_complete.');
   }
 }

@@ -13,8 +13,8 @@ import '../../content/providers/content_providers.dart';
 import '../../progress/providers/progress_refresh.dart';
 import '../../progress/widgets/practice_session_boundary.dart';
 import '../../quiz/models/quiz_models.dart';
-import '../../rewards/models/reward_event.dart';
 import '../../../core/ui/recorder_module.dart';
+import '../models/ayah_lesson_question.dart';
 import '../models/recitation_state.dart';
 import '../providers/recitation_controller.dart';
 
@@ -134,40 +134,43 @@ class _RecitationPracticeScreenState
         );
       }
 
-      if (previous?.rewardEvent != next.rewardEvent &&
-          next.rewardEvent != null) {
-        HapticFeedback.mediumImpact();
-        final args = RewardScreenArgs(
-          event: next.rewardEvent!,
-          primaryLabel: 'Continue',
-          primaryRoute: '/child/surah/$surahId/journey',
-          secondaryLabel: 'Back home',
-          secondaryRoute: '/child/home',
-        );
-        notifier.clearReward();
-        context.push('/child/reward', extra: args);
-      }
-
-      if (stageChanged && next.stage == RecitationStage.gateToQuiz) {
-        final quizType = quizTypeFromGate(next.nextGate);
-        final route = quizType == null
-            ? '/child/surah/$surahId/journey'
-            : '/child/surah/$surahId/quiz/${quizType.apiValue}';
+      if (stageChanged && next.stage == RecitationStage.lessonCompleted) {
+        if (next.childId.isNotEmpty) {
+          refreshChildProgress(ref.invalidate, next.childId);
+        }
         HapticFeedback.mediumImpact();
         _showInfoSheet(
-          title: 'Challenge time',
-          message: 'A quick check is unlocked. Let\'s go.',
-          primaryLabel: 'Lets go',
+          title: 'Level passed',
+          message: 'Great work. You earned hasanat for this ayah level.',
+          primaryLabel: 'Continue',
           secondaryLabel: 'Go back to ayat flow',
           onPrimary: () {
             context.pop();
-            context.push(route);
+            if (next.nextGate != null && next.nextGate!.isNotEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) {
+                  return;
+                }
+                _showMiniQuizPrompt(surahId: surahId, gate: next.nextGate);
+              });
+              return;
+            }
+            if (next.nextAyahId != null) {
+              context.go('/child/surah/$surahId/ayah/${next.nextAyahId}');
+              return;
+            }
+            context.go('/child/surah/$surahId/journey');
           },
           onSecondary: () {
             context.pop();
             context.go('/child/surah/$surahId/journey');
           },
         );
+      }
+
+      if (stageChanged && next.stage == RecitationStage.gateToQuiz) {
+        HapticFeedback.mediumImpact();
+        _showMiniQuizPrompt(surahId: surahId, gate: next.nextGate);
       }
 
       if (stageChanged && next.stage == RecitationStage.interventionRequired) {
@@ -217,10 +220,7 @@ class _RecitationPracticeScreenState
                       context.go('/child/surah/$surahId/journey'),
                 ),
                 const SizedBox(height: MissionSpacing.md),
-                LessonStarsBar(
-                  total: 6,
-                  filled: _filledForStage(controller.stage),
-                ),
+                LessonStarsBar(total: 6, filled: _filledForState(controller)),
                 const SizedBox(height: MissionSpacing.md),
                 Expanded(
                   child: SingleChildScrollView(
@@ -301,51 +301,61 @@ class _RecitationPracticeScreenState
                           ),
                         ),
                         const SizedBox(height: MissionSpacing.md),
-                        RecorderModule(
-                          state: _mapRecorderState(controller.stage),
-                          onPrimaryAction: () {
-                            switch (controller.stage) {
-                              case RecitationStage.idle:
-                                HapticFeedback.selectionClick();
-                                notifier.setRecording();
-                                break;
-                              case RecitationStage.recording:
-                                HapticFeedback.lightImpact();
-                                notifier.stopRecording();
-                                break;
-                              case RecitationStage.review:
-                                HapticFeedback.selectionClick();
-                                notifier.submitRecording();
-                                break;
-                              case RecitationStage.feedbackSuccess:
-                              case RecitationStage.feedbackFail:
-                                HapticFeedback.selectionClick();
-                                notifier.setRecording();
-                                break;
-                              case RecitationStage.uploading:
-                              case RecitationStage.interventionRequired:
-                              case RecitationStage.lockedOut:
-                              case RecitationStage.gateToQuiz:
-                                break;
-                            }
-                          },
-                          onSecondaryAction: () {
-                            HapticFeedback.selectionClick();
-                            notifier.setRecording();
-                          },
-                          onListen: () {
-                            HapticFeedback.selectionClick();
-                            notifier.playRecording();
-                          },
-                          durationLabel: controller.durationLabel,
-                        ),
-                        const SizedBox(height: MissionSpacing.sm),
-                        if (controller.attemptsLeftToday != null)
-                          Text(
-                            '${controller.attemptsLeftToday} attempts left today',
-                            textAlign: TextAlign.center,
-                            style: MissionText.micro(colors.textSecondary),
+                        if (controller.isComprehension &&
+                            controller.currentLessonQuestion != null) ...[
+                          _ComprehensionQuestionCard(
+                            state: controller,
+                            notifier: notifier,
                           ),
+                        ] else ...[
+                          RecorderModule(
+                            state: _mapRecorderState(controller.stage),
+                            onPrimaryAction: () {
+                              switch (controller.stage) {
+                                case RecitationStage.idle:
+                                  HapticFeedback.selectionClick();
+                                  notifier.setRecording();
+                                  break;
+                                case RecitationStage.recording:
+                                  HapticFeedback.lightImpact();
+                                  notifier.stopRecording();
+                                  break;
+                                case RecitationStage.review:
+                                  HapticFeedback.selectionClick();
+                                  notifier.submitRecording();
+                                  break;
+                                case RecitationStage.feedbackSuccess:
+                                case RecitationStage.feedbackFail:
+                                  HapticFeedback.selectionClick();
+                                  notifier.setRecording();
+                                  break;
+                                case RecitationStage.uploading:
+                                case RecitationStage.interventionRequired:
+                                case RecitationStage.lockedOut:
+                                case RecitationStage.gateToQuiz:
+                                case RecitationStage.comprehension:
+                                case RecitationStage.lessonCompleted:
+                                  break;
+                              }
+                            },
+                            onSecondaryAction: () {
+                              HapticFeedback.selectionClick();
+                              notifier.setRecording();
+                            },
+                            onListen: () {
+                              HapticFeedback.selectionClick();
+                              notifier.playRecording();
+                            },
+                            durationLabel: controller.durationLabel,
+                          ),
+                          const SizedBox(height: MissionSpacing.sm),
+                          if (controller.attemptsLeftToday != null)
+                            Text(
+                              '${controller.attemptsLeftToday} attempts left today',
+                              textAlign: TextAlign.center,
+                              style: MissionText.micro(colors.textSecondary),
+                            ),
+                        ],
                       ],
                     ),
                   ),
@@ -486,6 +496,27 @@ class _RecitationPracticeScreenState
     );
   }
 
+  void _showMiniQuizPrompt({required int surahId, required String? gate}) {
+    final quizType = quizTypeFromGate(gate);
+    final route = quizType == null
+        ? '/child/surah/$surahId/journey'
+        : '/child/surah/$surahId/quiz/${quizType.apiValue}';
+    _showInfoSheet(
+      title: 'Challenge time',
+      message: 'A quick check is unlocked. Let\'s go.',
+      primaryLabel: 'Lets go',
+      secondaryLabel: 'Go back to ayat flow',
+      onPrimary: () {
+        context.pop();
+        context.push(route);
+      },
+      onSecondary: () {
+        context.pop();
+        context.go('/child/surah/$surahId/journey');
+      },
+    );
+  }
+
   RecorderState _mapRecorderState(RecitationStage stage) {
     switch (stage) {
       case RecitationStage.idle:
@@ -498,6 +529,8 @@ class _RecitationPracticeScreenState
       case RecitationStage.interventionRequired:
       case RecitationStage.lockedOut:
       case RecitationStage.gateToQuiz:
+      case RecitationStage.comprehension:
+      case RecitationStage.lessonCompleted:
         return RecorderState.submitting;
       case RecitationStage.feedbackSuccess:
       case RecitationStage.feedbackFail:
@@ -505,8 +538,8 @@ class _RecitationPracticeScreenState
     }
   }
 
-  int _filledForStage(RecitationStage stage) {
-    switch (stage) {
+  int _filledForState(RecitationState state) {
+    switch (state.stage) {
       case RecitationStage.idle:
       case RecitationStage.recording:
       case RecitationStage.review:
@@ -516,10 +549,209 @@ class _RecitationPracticeScreenState
       case RecitationStage.feedbackFail:
         return 3;
       case RecitationStage.gateToQuiz:
-        return 4;
+      case RecitationStage.lessonCompleted:
+        return 6;
+      case RecitationStage.comprehension:
+        final filled = 4 + state.lessonQuestionIndex;
+        return filled.clamp(4, 5);
       case RecitationStage.interventionRequired:
       case RecitationStage.lockedOut:
         return 2;
     }
+  }
+}
+
+class _ComprehensionQuestionCard extends StatelessWidget {
+  const _ComprehensionQuestionCard({
+    required this.state,
+    required this.notifier,
+  });
+
+  final RecitationState state;
+  final RecitationController notifier;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+    final question = state.currentLessonQuestion;
+    if (question == null) {
+      return const SizedBox.shrink();
+    }
+
+    final selectedId = notifier.selectedLessonOptionFor(question.id);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MissionCard(
+          padding: const EdgeInsets.all(MissionSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                question.title.toUpperCase(),
+                style: MissionText.label(colors.textSecondary),
+              ),
+              const SizedBox(height: MissionSpacing.xs),
+              Text(
+                question.prompt,
+                style: MissionText.heading(
+                  colors.textPrimary,
+                ).copyWith(fontSize: 38),
+              ),
+              if ((question.context ?? '').isNotEmpty) ...[
+                const SizedBox(height: MissionSpacing.sm),
+                Container(
+                  height: 1,
+                  color: colors.line.withValues(alpha: 0.45),
+                ),
+                const SizedBox(height: MissionSpacing.sm),
+                Text(
+                  question.context!,
+                  style: MissionText.body(colors.textSecondary),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: MissionSpacing.md),
+        for (var i = 0; i < question.options.length; i++) ...[
+          _ComprehensionOptionTile(
+            option: question.options[i],
+            selected: selectedId == question.options[i].id,
+            leadingLabel: '${String.fromCharCode(65 + i)})',
+            onTap: () => notifier.selectLessonOption(
+              question.id,
+              question.options[i].id,
+            ),
+          ),
+          if (i != question.options.length - 1)
+            const SizedBox(height: MissionSpacing.sm),
+        ],
+        const SizedBox(height: MissionSpacing.lg),
+        MissionButton(
+          label: 'Submit',
+          onPressed: selectedId == null || state.isBusy
+              ? null
+              : () {
+                  final correct = notifier.isCurrentLessonAnswerCorrect();
+                  if (correct) {
+                    showLessonFeedbackSheet(
+                      context: context,
+                      sheet: LessonFeedbackSheet(
+                        title: 'Good job',
+                        message: 'Correct answer.',
+                        emphasis: notifier.isLastLessonQuestion()
+                            ? 'Level completion unlocked.'
+                            : 'Continue to the next question.',
+                        primaryLabel: notifier.isLastLessonQuestion()
+                            ? 'Finish level'
+                            : 'Next',
+                        onPrimary: () async {
+                          context.pop();
+                          if (notifier.isLastLessonQuestion()) {
+                            await notifier.completeAyahLesson();
+                            return;
+                          }
+                          notifier.nextLessonQuestion();
+                        },
+                      ),
+                    );
+                    return;
+                  }
+
+                  final correctOption = question.options.firstWhere(
+                    (option) => option.id == question.correctOptionId,
+                    orElse: () => question.options.first,
+                  );
+                  showLessonFeedbackSheet(
+                    context: context,
+                    sheet: LessonFeedbackSheet(
+                      title: 'Incorrect',
+                      titleColor: const Color(0xFFCF6660),
+                      message: 'Try again with the correct option.',
+                      detailLabel: 'Correct answer is',
+                      detailValue: correctOption.label,
+                      primaryLabel: 'Try again',
+                      onPrimary: () {
+                        context.pop();
+                        notifier.retryCurrentLessonQuestion(
+                          clearSelection: true,
+                        );
+                      },
+                    ),
+                  );
+                },
+        ),
+      ],
+    );
+  }
+}
+
+class _ComprehensionOptionTile extends StatelessWidget {
+  const _ComprehensionOptionTile({
+    required this.option,
+    required this.selected,
+    required this.leadingLabel,
+    required this.onTap,
+  });
+
+  final AyahLessonOption option;
+  final bool selected;
+  final String leadingLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MissionColors.resolve(Theme.of(context).brightness);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(MissionRadius.sm),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(MissionSpacing.sm),
+          decoration: BoxDecoration(
+            color: selected ? colors.surface : colors.surfaceElevated,
+            borderRadius: BorderRadius.circular(MissionRadius.sm),
+            border: Border.all(
+              color: selected ? colors.textPrimary : colors.line,
+              width: 1.25,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow,
+                blurRadius: 0,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$leadingLabel ${option.label}'.trim(),
+                      style: MissionText.label(colors.textPrimary),
+                    ),
+                    if ((option.subtitle ?? '').isNotEmpty) ...[
+                      const SizedBox(height: MissionSpacing.xs),
+                      Text(
+                        option.subtitle!,
+                        style: MissionText.body(
+                          colors.textSecondary,
+                        ).copyWith(fontFamily: 'NotoNaskhArabic'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

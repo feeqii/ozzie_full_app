@@ -99,13 +99,17 @@ class _AppBootstrapState extends State<AppBootstrap> {
 }
 
 class AppBootstrapScope extends InheritedWidget {
-  const AppBootstrapScope({super.key, required this.state, required super.child});
+  const AppBootstrapScope({
+    super.key,
+    required this.state,
+    required super.child,
+  });
 
   final AppStartupState state;
 
   static AppBootstrapScope of(BuildContext context) {
-    final AppBootstrapScope? scope =
-        context.dependOnInheritedWidgetOfExactType<AppBootstrapScope>();
+    final AppBootstrapScope? scope = context
+        .dependOnInheritedWidgetOfExactType<AppBootstrapScope>();
     assert(scope != null, 'AppBootstrapScope not found in widget tree');
     return scope!;
   }
@@ -123,21 +127,32 @@ class AppBootstrapScope extends InheritedWidget {
 class _LoggingHttpClient extends http.BaseClient {
   _LoggingHttpClient(this._inner, this._getAccessToken);
 
+  static const bool _functionsHttpLoggingEnabled = bool.fromEnvironment(
+    'LOG_FUNCTIONS_HTTP',
+    defaultValue: false,
+  );
+
   final http.Client _inner;
   final String? Function() _getAccessToken;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final isFunctionCall = request.url.path.contains('/functions/v1/');
-    if (isFunctionCall) {
-      final authHeader = request.headers['Authorization'] ?? request.headers['authorization'];
+    if (isFunctionCall && _functionsHttpLoggingEnabled) {
+      final authHeader =
+          request.headers['Authorization'] ?? request.headers['authorization'];
       final hasBearer = authHeader != null && authHeader.startsWith('Bearer ');
       final token = hasBearer ? authHeader.substring('Bearer '.length) : null;
       final sessionToken = _getAccessToken();
-      final matchesSession = token != null && sessionToken != null && token == sessionToken;
+      final matchesSession =
+          token != null && sessionToken != null && token == sessionToken;
       debugPrint(
         '[FunctionsHTTP] ${request.method} ${request.url} '
-        'auth=${hasBearer ? 'bearer' : authHeader == null ? 'missing' : 'present'} '
+        'auth=${hasBearer
+            ? 'bearer'
+            : authHeader == null
+            ? 'missing'
+            : 'present'} '
         'matchesSession=$matchesSession apikey=${request.headers.containsKey('apikey')}',
       );
     }

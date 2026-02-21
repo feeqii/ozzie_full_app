@@ -185,6 +185,18 @@ class _PlanetMapScreenState extends ConsumerState<PlanetMapScreen> {
                                         context.push(
                                           '/child/surah/${selected.id}',
                                         );
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not start mission. Please try again.',
+                                              ),
+                                            ),
+                                          );
+                                        }
                                       } finally {
                                         if (mounted) {
                                           setState(() => _isStarting = false);

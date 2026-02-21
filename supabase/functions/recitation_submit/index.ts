@@ -528,12 +528,10 @@ Deno.serve(async (req) => {
       return jsonResponse(500, { error: "Failed to update ayah progress" });
     }
 
-    let nextGate: string | null = null;
-
     // Keep child_level_progress in sync when the new level graph exists.
     const { data: levelRow } = await supabaseAdmin
       .from("levels")
-      .select("id, surah_id, type, order_index, config")
+      .select("id")
       .eq("surah_id", surah_id)
       .eq("type", "VERSE_LESSON")
       .eq("ayah_id", ayah_id)
@@ -558,7 +556,7 @@ Deno.serve(async (req) => {
 
       const { data: existingLevelProgress } = await supabaseAdmin
         .from("child_level_progress")
-        .select("status")
+        .select("status, completed_at")
         .eq("child_id", child_id)
         .eq("level_id", levelRow.id)
         .maybeSingle();
@@ -566,8 +564,9 @@ Deno.serve(async (req) => {
       const existingStatus = (existingLevelProgress?.status as string | undefined) ?? "LOCKED";
       let nextStatus = existingStatus;
       if (existingStatus !== "COMPLETED") {
-        if (ayahMasteredNow) nextStatus = "COMPLETED";
-        else if (existingStatus === "UNLOCKED") nextStatus = "IN_PROGRESS";
+        if (existingStatus === "UNLOCKED") {
+          nextStatus = "IN_PROGRESS";
+        }
       }
 
       await supabaseAdmin.from("child_level_progress").upsert(
@@ -581,95 +580,13 @@ Deno.serve(async (req) => {
           pass_count_total: newPassCountTotal,
           locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
           last_score: score,
-          completed_at: ayahMasteredNow ? new Date().toISOString() : null,
+          completed_at: existingStatus === "COMPLETED"
+            ? (existingLevelProgress?.completed_at as string | null | undefined) ?? null
+            : null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "child_id,level_id" },
       );
-
-      if (ayahMasteredNow) {
-        const { data: nextLevel } = await supabaseAdmin
-          .from("levels")
-          .select("id, type, config")
-          .eq("surah_id", surah_id)
-          .eq("order_index", (levelRow.order_index as number) + 1)
-          .maybeSingle();
-
-        if (nextLevel?.id) {
-          // Unlock next level if currently locked.
-          await supabaseAdmin.from("child_level_progress").update({
-            status: "UNLOCKED",
-            updated_at: new Date().toISOString(),
-          }).eq("child_id", child_id)
-            .eq("level_id", nextLevel.id)
-            .eq("status", "LOCKED");
-
-          const quizType = (nextLevel.config as Record<string, unknown> | null)?.quiz_type;
-          if (nextLevel.type === "CHECKPOINT" && typeof quizType === "string") {
-            nextGate = quizType === "mini_1"
-              ? "MINI_QUIZ_1"
-              : quizType === "mini_2"
-                ? "MINI_QUIZ_2"
-                : null;
-          }
-          if (nextLevel.type === "FINAL_EXAM") {
-            nextGate = "FINAL_EXAM";
-          }
-        }
-      }
-    }
-
-    const { data: surahRow, error: surahError } = await supabaseAdmin
-      .from("surah_progress")
-      .select("child_id, surah_id, stage, unlocked_ayah_max")
-      .eq("child_id", child_id)
-      .eq("surah_id", surah_id)
-      .maybeSingle();
-
-    if (surahError) {
-      return jsonResponse(500, { error: "Failed to load surah progress" });
-    }
-
-    const surahBase = surahRow ?? {
-      child_id,
-      surah_id,
-      stage: "LEARN_1_2",
-      unlocked_ayah_max: 1,
-    };
-
-    let updatedStage = surahBase.stage;
-    let updatedUnlockedAyah = surahBase.unlocked_ayah_max ?? 1;
-
-    if (ayahMasteredNow) {
-      updatedUnlockedAyah = Math.max(updatedUnlockedAyah, ayah_id + 1);
-    }
-
-    if (nextGate === "MINI_QUIZ_1") {
-      updatedStage = "MINI_QUIZ_1";
-    }
-    if (nextGate === "MINI_QUIZ_2") {
-      updatedStage = "MINI_QUIZ_2";
-    }
-    if (nextGate === "FINAL_EXAM") {
-      updatedStage = "FINAL_EXAM";
-    }
-
-    await supabaseAdmin.from("surah_progress").upsert({
-      child_id,
-      surah_id,
-      stage: updatedStage,
-      unlocked_ayah_max: updatedUnlockedAyah,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (!nextGate && passed) {
-      if (updatedStage === "MINI_QUIZ_1") {
-        nextGate = "MINI_QUIZ_1";
-      } else if (updatedStage === "MINI_QUIZ_2") {
-        nextGate = "MINI_QUIZ_2";
-      } else if (updatedStage === "FINAL_EXAM") {
-        nextGate = "FINAL_EXAM";
-      }
     }
 
     const { data: streakRow } = await supabaseAdmin
@@ -704,13 +621,14 @@ Deno.serve(async (req) => {
       mistakeType,
       passCountTotal: newPassCountTotal,
       passesRemaining: Math.max(0, passesRequired - newPassCountTotal),
+      lessonReadyForComprehension: passed && newPassCountTotal >= passesRequired,
       attemptsToday: attemptNumberToday,
       attemptsLeftToday: lockOutNow ? 0 : failuresLeftToday,
       showDetailedFeedback: shouldShowDetailedFeedback,
       mustReplayLearnStep: newConsecutiveFails >= 2 && !passed,
       shouldBlurVerse: blurAfterAttempt ? attemptNumberToday >= blurAfterAttempt : false,
       ayahMasteredNow,
-      nextGate,
+      nextGate: null,
       locked_until: lockedUntilNow ? lockedUntilNow.toISOString() : null,
     });
   } catch (error) {

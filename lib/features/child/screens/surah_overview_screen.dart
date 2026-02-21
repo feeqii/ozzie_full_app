@@ -63,35 +63,49 @@ class SurahOverviewScreen extends ConsumerWidget {
                             return;
                           }
 
-                          final journeyRepo = ref.read(
-                            journeyRepositoryProvider,
-                          );
-                          final mapRepo = ref.read(mapRepositoryProvider);
-                          final levels = await journeyRepo.fetchLevels(
-                            surahId: surahId,
-                          );
-                          final introLevel = levels.firstWhere(
-                            (level) =>
-                                level.type == JourneyLevelType.surahIntro,
-                            orElse: () => const JourneyLevel(
-                              id: '',
-                              surahId: 0,
-                              type: JourneyLevelType.verseLesson,
-                              orderIndex: 0,
-                            ),
-                          );
-
-                          if (introLevel.id.isNotEmpty) {
-                            await mapRepo.completeLevel(
-                              childId: child.id,
-                              levelId: introLevel.id,
+                          try {
+                            final journeyRepo = ref.read(
+                              journeyRepositoryProvider,
                             );
-                            ref.invalidate(mapStateProvider);
-                            ref.invalidate(surahJourneyStepsProvider(surahId));
-                          }
+                            final mapRepo = ref.read(mapRepositoryProvider);
+                            final levels = await journeyRepo.fetchLevels(
+                              surahId: surahId,
+                            );
+                            final introLevel = levels.firstWhere(
+                              (level) =>
+                                  level.type == JourneyLevelType.surahIntro,
+                              orElse: () => const JourneyLevel(
+                                id: '',
+                                surahId: 0,
+                                type: JourneyLevelType.verseLesson,
+                                orderIndex: 0,
+                              ),
+                            );
 
-                          if (context.mounted) {
-                            context.push('/child/surah/$surahId/journey');
+                            if (introLevel.id.isNotEmpty) {
+                              await mapRepo.completeLevel(
+                                childId: child.id,
+                                levelId: introLevel.id,
+                              );
+                              ref.invalidate(mapStateProvider);
+                              ref.invalidate(
+                                surahJourneyStepsProvider(surahId),
+                              );
+                            }
+
+                            if (context.mounted) {
+                              context.push('/child/surah/$surahId/journey');
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not start mission. Please try again.',
+                                  ),
+                                ),
+                              );
+                            }
                           }
                         },
                       ),

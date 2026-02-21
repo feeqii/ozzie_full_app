@@ -90,6 +90,15 @@ class _FakeRecitationRepository implements RecitationRepository {
   }) async {
     return <String, dynamic>{'passed': true, 'score': 100};
   }
+
+  @override
+  Future<Map<String, dynamic>> completeAyahLesson({
+    required String childId,
+    required int surahId,
+    required int ayahId,
+  }) async {
+    return <String, dynamic>{'completed': true};
+  }
 }
 
 class _FakeQuizRepository implements QuizRepository {

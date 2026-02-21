@@ -35,20 +35,17 @@ void main() {
     );
   }
 
-  test('mini1 comprehension question stays within first two ayahs', () {
+  test('mini1 checkpoint question combines first two ayahs', () {
     final controller = buildController(quizType: QuizType.mini1);
     final question = controller.state.questions.firstWhere(
       (item) => item.id == 's1m1q3',
     );
 
-    expect(
-      question.prompt,
-      'Who is praised in “Alhamdu lillahi Rabbil ʿālamīn”?',
-    );
+    expect(question.prompt, 'What combined message do verses 1 and 2 teach?');
     expect(question.correctOptionId, 'a');
     expect(
       question.options.firstWhere((item) => item.id == 'a').label,
-      'Allah, Lord of all worlds.',
+      'Begin with Allah\'s name and praise Him as Lord of all worlds.',
     );
   });
 
@@ -67,7 +64,7 @@ void main() {
     );
   });
 
-  test('mini2 reading question stays within first four ayahs', () {
+  test('mini2 reading question checks sequence within first four ayahs', () {
     final controller = buildController();
     final question = controller.state.questions.firstWhere(
       (item) => item.id == 's1m2q3',
@@ -75,12 +72,12 @@ void main() {
 
     expect(
       question.prompt,
-      'What does “Ar-Rahmanir Rahim” remind us about Allah?',
+      'Which sequence correctly follows verse 2 in Al-Fatihah so far?',
     );
     expect(question.correctOptionId, 'a');
     expect(
       question.options.firstWhere((item) => item.id == 'a').label,
-      'Allah is Most Gracious and Most Merciful.',
+      'Ar-Rahmanir-Rahim, then Maliki yawmid-din.',
     );
   });
 

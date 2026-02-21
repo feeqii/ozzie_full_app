@@ -97,6 +97,9 @@ class QuizRecitationController extends StateNotifier<QuizRecitationState> {
   final AudioRecorder _recorder;
   final AudioPlayer _player;
   final SelectedChildGetter _selectedChild;
+  static const String _logTag = '[QuizRecitation]';
+  bool _recordingTransitionInFlight = false;
+  bool _playbackInFlight = false;
 
   Future<bool> ensureMicPermission({bool requestIfNeeded = true}) async {
     final status = await Permission.microphone.status;
@@ -150,6 +153,9 @@ class QuizRecitationController extends StateNotifier<QuizRecitationState> {
     if (state.isBusy) {
       return;
     }
+    if (_recordingTransitionInFlight) {
+      return;
+    }
 
     final hasPermission = await ensureMicPermission();
     if (!hasPermission) {
@@ -161,48 +167,89 @@ class QuizRecitationController extends StateNotifier<QuizRecitationState> {
       return;
     }
 
-    final dir = await getTemporaryDirectory();
-    final filePath =
-        '${dir.path}/quiz_recitation_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    _recordingTransitionInFlight = true;
+    try {
+      final dir = await getTemporaryDirectory();
+      final filePath =
+          '${dir.path}/quiz_recitation_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
-      path: filePath,
-    );
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: filePath,
+      );
 
-    state = state.copyWith(
-      stage: QuizRecitationStage.recording,
-      localPath: filePath,
-      durationLabel: '0:00',
-      clearError: true,
-      clearTranscript: true,
-    );
+      state = state.copyWith(
+        stage: QuizRecitationStage.recording,
+        localPath: filePath,
+        durationLabel: '0:00',
+        clearError: true,
+        clearTranscript: true,
+      );
+    } catch (error) {
+      debugPrint('$_logTag startRecording failed: $error');
+      state = state.copyWith(
+        stage: QuizRecitationStage.idle,
+        errorMessage: 'Unable to start recording. Please try again.',
+      );
+    } finally {
+      _recordingTransitionInFlight = false;
+    }
   }
 
   Future<void> stopRecording() async {
-    final path = await _recorder.stop();
-    if (path == null) {
+    if (_recordingTransitionInFlight) {
+      return;
+    }
+
+    _recordingTransitionInFlight = true;
+    try {
+      final path = await _recorder.stop();
+      if (path == null) {
+        state = state.copyWith(
+          stage: QuizRecitationStage.idle,
+          errorMessage: 'Recording failed. Try again.',
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        stage: QuizRecitationStage.review,
+        localPath: path,
+        durationLabel: '0:06',
+        clearError: true,
+      );
+    } catch (error) {
+      debugPrint('$_logTag stopRecording failed: $error');
       state = state.copyWith(
         stage: QuizRecitationStage.idle,
         errorMessage: 'Recording failed. Try again.',
       );
-      return;
+    } finally {
+      _recordingTransitionInFlight = false;
     }
-
-    state = state.copyWith(
-      stage: QuizRecitationStage.review,
-      localPath: path,
-      durationLabel: '0:06',
-      clearError: true,
-    );
   }
 
   Future<void> playRecording() async {
-    if (state.localPath == null) {
+    final localPath = state.localPath;
+    if (localPath == null || localPath.isEmpty) {
       return;
     }
-    await _player.setFilePath(state.localPath!);
-    await _player.play();
+    if (_playbackInFlight) {
+      return;
+    }
+
+    _playbackInFlight = true;
+    try {
+      await _player.setFilePath(localPath);
+      await _player.play();
+    } catch (error) {
+      debugPrint('$_logTag playRecording failed: $error');
+      state = state.copyWith(
+        errorMessage: 'Unable to play recording. Please record again.',
+      );
+    } finally {
+      _playbackInFlight = false;
+    }
   }
 
   Future<void> submitRecording() async {
@@ -228,13 +275,8 @@ class QuizRecitationController extends StateNotifier<QuizRecitationState> {
 
     try {
       final client = Supabase.instance.client;
-      final session = client.auth.currentSession;
+      final session = await _ensureActiveSession(client);
       if (session == null) {
-        throw const AuthException('Session expired. Please sign in again.');
-      }
-      final refreshed = await client.auth.refreshSession();
-      if (refreshed.session == null) {
-        await client.auth.signOut();
         throw const AuthException('Session expired. Please sign in again.');
       }
 
@@ -287,7 +329,7 @@ class QuizRecitationController extends StateNotifier<QuizRecitationState> {
           ? 'Session invalid. Please sign out and sign in again.'
           : error.toString();
       debugPrint(
-        '[QuizRecitation] FunctionException status=${error.status} details=${error.details}',
+        '$_logTag FunctionException status=${error.status} details=${error.details}',
       );
       state = state.copyWith(
         stage: QuizRecitationStage.review,
@@ -314,5 +356,34 @@ class QuizRecitationController extends StateNotifier<QuizRecitationState> {
     _recorder.dispose();
     _player.dispose();
     super.dispose();
+  }
+
+  Future<Session?> _ensureActiveSession(SupabaseClient client) async {
+    final session = client.auth.currentSession;
+    if (session == null) {
+      return null;
+    }
+
+    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = session.expiresAt;
+    final shouldRefresh = expiresAt == null || expiresAt <= (nowSeconds + 90);
+
+    if (!shouldRefresh) {
+      return session;
+    }
+
+    try {
+      final refreshed = await client.auth.refreshSession();
+      if (refreshed.session != null) {
+        return refreshed.session;
+      }
+    } catch (error) {
+      debugPrint('$_logTag refreshSession failed: $error');
+    }
+
+    if (expiresAt != null && expiresAt > nowSeconds) {
+      return session;
+    }
+    return null;
   }
 }

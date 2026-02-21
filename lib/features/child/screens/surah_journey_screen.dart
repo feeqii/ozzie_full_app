@@ -172,14 +172,28 @@ class SurahJourneyScreen extends ConsumerWidget {
                               onPressed: surah.locked || child == null
                                   ? null
                                   : () async {
-                                      await repo.startSurah(
-                                        childId: child.id,
-                                        surahId: surahId,
-                                      );
-                                      ref.invalidate(mapStateProvider);
-                                      ref.invalidate(
-                                        surahJourneyStepsProvider(surahId),
-                                      );
+                                      try {
+                                        await repo.startSurah(
+                                          childId: child.id,
+                                          surahId: surahId,
+                                        );
+                                        ref.invalidate(mapStateProvider);
+                                        ref.invalidate(
+                                          surahJourneyStepsProvider(surahId),
+                                        );
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not activate mission. Please try again.',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
                                     },
                             ),
                           ],

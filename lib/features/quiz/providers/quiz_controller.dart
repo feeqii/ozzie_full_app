@@ -314,14 +314,27 @@ class QuizController extends StateNotifier<QuizState> {
         QuizQuestion(
           id: 's1m1q3',
           type: QuizQuestionType.comprehension,
-          title: 'Choose the meaning',
-          prompt: 'Who is praised in “Alhamdu lillahi Rabbil ʿālamīn”?',
-          context: 'Keep practicing comprehension while memorizing.',
+          title: 'Checkpoint meaning',
+          prompt: 'What combined message do verses 1 and 2 teach?',
+          context: 'This checks both ayahs together before the checkpoint.',
           options: [
-            QuizQuestionOption(id: 'a', label: 'Allah, Lord of all worlds.'),
-            QuizQuestionOption(id: 'b', label: 'Only the angels.'),
-            QuizQuestionOption(id: 'c', label: 'Only the prophets.'),
-            QuizQuestionOption(id: 'd', label: 'Only believers.'),
+            QuizQuestionOption(
+              id: 'a',
+              label:
+                  'Begin with Allah\'s name and praise Him as Lord of all worlds.',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'Ask for guidance and mention the straight path first.',
+            ),
+            QuizQuestionOption(
+              id: 'c',
+              label: 'Describe the Day of Judgment before praising Allah.',
+            ),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'Focus only on worship without asking for help.',
+            ),
           ],
           correctOptionId: 'a',
         ),
@@ -398,27 +411,28 @@ class QuizController extends StateNotifier<QuizState> {
           id: 's1m2q3',
           type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
-          prompt: 'What does “Ar-Rahmanir Rahim” remind us about Allah?',
+          prompt:
+              'Which sequence correctly follows verse 2 in Al-Fatihah so far?',
           hasAudio: true,
           options: [
             QuizQuestionOption(
               id: 'a',
-              label: 'Allah is Most Gracious and Most Merciful.',
+              label: 'Ar-Rahmanir-Rahim, then Maliki yawmid-din.',
               audioRef: 's1m2q3_a',
             ),
             QuizQuestionOption(
               id: 'b',
-              label: 'Allah is Master of the Day of Judgment.',
+              label: 'Maliki yawmid-din, then Ar-Rahmanir-Rahim.',
               audioRef: 's1m2q3_b',
             ),
             QuizQuestionOption(
               id: 'c',
-              label: 'Allah is Lord of all worlds.',
+              label: 'Iyyaka na\'budu, then Ar-Rahmanir-Rahim.',
               audioRef: 's1m2q3_c',
             ),
             QuizQuestionOption(
               id: 'd',
-              label: 'We begin by saying Bismillah.',
+              label: 'Ihdinas-siratal-mustaqim, then Maliki yawmid-din.',
               audioRef: 's1m2q3_d',
             ),
           ],
@@ -497,12 +511,16 @@ class QuizController extends StateNotifier<QuizState> {
           id: 's112m1q2',
           type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
-          prompt: 'What does Al-Ikhlas teach about Allah?',
+          prompt:
+              'What combined message do the first two verses of Al-Ikhlas give?',
           options: [
-            QuizQuestionOption(id: 'a', label: 'Allah is One and Eternal.'),
-            QuizQuestionOption(id: 'b', label: 'Allah needs helpers.'),
-            QuizQuestionOption(id: 'c', label: 'Allah has a family.'),
-            QuizQuestionOption(id: 'd', label: 'Allah changes with time.'),
+            QuizQuestionOption(
+              id: 'a',
+              label: 'Allah is One and the Eternal Refuge.',
+            ),
+            QuizQuestionOption(id: 'b', label: 'Allah has equals and helpers.'),
+            QuizQuestionOption(id: 'c', label: 'Allah is born and changes.'),
+            QuizQuestionOption(id: 'd', label: 'Allah has family relations.'),
           ],
           correctOptionId: 'a',
         ),
@@ -537,8 +555,8 @@ class QuizController extends StateNotifier<QuizState> {
           id: 's112m2q2',
           type: QuizQuestionType.wordOrdering,
           title: 'Word ordering',
-          prompt: 'Pick the phrase that completes the verse meaning.',
-          context: 'Nor is there to Him any equivalent.',
+          prompt: 'Pick the ending that completes the full surah message.',
+          context: 'After verses 1-3, what finishes the meaning correctly?',
           options: [
             QuizQuestionOption(id: 'a', label: 'Nothing compares to Allah.'),
             QuizQuestionOption(id: 'b', label: 'Allah is the Eternal Refuge.'),
@@ -596,9 +614,9 @@ class QuizController extends StateNotifier<QuizState> {
       );
     }
     return RewardEvent(
-      type: RewardType.badge,
-      title: 'Quiz passed!',
-      message: 'New badge unlocked for this quiz.',
+      type: RewardType.hasanat,
+      title: 'Checkpoint passed!',
+      message: 'You earned hasanat for this mini quiz.',
       score: (payload['score'] as num?)?.toInt(),
     );
   }

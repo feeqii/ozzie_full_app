@@ -1,10 +1,13 @@
 import '../../rewards/models/reward_event.dart';
+import 'ayah_lesson_question.dart';
 
 enum RecitationStage {
   idle,
   recording,
   review,
   uploading,
+  comprehension,
+  lessonCompleted,
   feedbackSuccess,
   feedbackFail,
   interventionRequired,
@@ -29,6 +32,10 @@ class RecitationState {
     this.mustReplayLearnStep = false,
     this.showDetailedFeedback = false,
     this.shouldBlurVerse = false,
+    this.lessonQuestions = const [],
+    this.lessonQuestionIndex = 0,
+    this.lessonSelections = const {},
+    this.nextAyahId,
     this.nextGate,
     this.lockedUntil,
     this.lastResultMessage,
@@ -50,6 +57,10 @@ class RecitationState {
   final bool mustReplayLearnStep;
   final bool showDetailedFeedback;
   final bool shouldBlurVerse;
+  final List<AyahLessonQuestion> lessonQuestions;
+  final int lessonQuestionIndex;
+  final Map<String, String> lessonSelections;
+  final int? nextAyahId;
   final String? nextGate;
   final DateTime? lockedUntil;
   final String? lastResultMessage;
@@ -69,11 +80,18 @@ class RecitationState {
     bool? mustReplayLearnStep,
     bool? showDetailedFeedback,
     bool? shouldBlurVerse,
+    List<AyahLessonQuestion>? lessonQuestions,
+    int? lessonQuestionIndex,
+    Map<String, String>? lessonSelections,
+    int? nextAyahId,
+    bool clearNextAyahId = false,
     String? nextGate,
+    bool clearNextGate = false,
     DateTime? lockedUntil,
     String? lastResultMessage,
     RewardEvent? rewardEvent,
     bool clearReward = false,
+    bool clearLessonFlow = false,
   }) {
     return RecitationState(
       childId: childId,
@@ -84,18 +102,40 @@ class RecitationState {
       durationLabel: durationLabel ?? this.durationLabel,
       isBusy: isBusy ?? this.isBusy,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
-      showMicSettingsPrompt: showMicSettingsPrompt ?? this.showMicSettingsPrompt,
+      showMicSettingsPrompt:
+          showMicSettingsPrompt ?? this.showMicSettingsPrompt,
       score: score ?? this.score,
       passesRemaining: passesRemaining ?? this.passesRemaining,
       attemptsLeftToday: attemptsLeftToday ?? this.attemptsLeftToday,
       mustReplayLearnStep: mustReplayLearnStep ?? this.mustReplayLearnStep,
       showDetailedFeedback: showDetailedFeedback ?? this.showDetailedFeedback,
       shouldBlurVerse: shouldBlurVerse ?? this.shouldBlurVerse,
-      nextGate: nextGate ?? this.nextGate,
+      lessonQuestions: clearLessonFlow
+          ? const []
+          : lessonQuestions ?? this.lessonQuestions,
+      lessonQuestionIndex: clearLessonFlow
+          ? 0
+          : lessonQuestionIndex ?? this.lessonQuestionIndex,
+      lessonSelections: clearLessonFlow
+          ? const {}
+          : lessonSelections ?? this.lessonSelections,
+      nextAyahId: clearNextAyahId ? null : nextAyahId ?? this.nextAyahId,
+      nextGate: clearNextGate ? null : nextGate ?? this.nextGate,
       lockedUntil: lockedUntil ?? this.lockedUntil,
       lastResultMessage: lastResultMessage ?? this.lastResultMessage,
       rewardEvent: clearReward ? null : rewardEvent ?? this.rewardEvent,
     );
+  }
+
+  AyahLessonQuestion? get currentLessonQuestion {
+    if (lessonQuestions.isEmpty) {
+      return null;
+    }
+    if (lessonQuestionIndex < 0 ||
+        lessonQuestionIndex >= lessonQuestions.length) {
+      return null;
+    }
+    return lessonQuestions[lessonQuestionIndex];
   }
 
   String resultSummary() {
@@ -112,4 +152,5 @@ class RecitationState {
   bool get isLocked => stage == RecitationStage.lockedOut;
   bool get isIntervention => stage == RecitationStage.interventionRequired;
   bool get isSuccess => stage == RecitationStage.feedbackSuccess;
+  bool get isComprehension => stage == RecitationStage.comprehension;
 }

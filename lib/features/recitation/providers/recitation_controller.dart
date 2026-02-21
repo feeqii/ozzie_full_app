@@ -12,7 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase_client_provider.dart';
 import '../../child/models/child_profile.dart';
 import '../../child/providers/child_providers.dart';
-import '../../rewards/models/reward_event.dart';
+import '../models/ayah_lesson_question.dart';
 import '../models/recitation_state.dart';
 import '../repo/recitation_repository.dart';
 
@@ -21,18 +21,21 @@ final recitationRepositoryProvider = Provider<RecitationRepository>((ref) {
   return RecitationRepository(client);
 });
 
-final recitationControllerProvider = StateNotifierProvider.family<RecitationController, RecitationState, RecitationParams>(
-  (ref, params) {
-    final repo = ref.watch(recitationRepositoryProvider);
-    ChildProfile? selectedChildGetter() => ref.read(selectedChildProvider);
-    final childId = params.childId ?? selectedChildGetter()?.id ?? '';
-    return RecitationController(
-      repo,
-      params.copyWith(childId: childId),
-      selectedChildGetter,
-    );
-  },
-);
+final recitationControllerProvider =
+    StateNotifierProvider.family<
+      RecitationController,
+      RecitationState,
+      RecitationParams
+    >((ref, params) {
+      final repo = ref.watch(recitationRepositoryProvider);
+      ChildProfile? selectedChildGetter() => ref.read(selectedChildProvider);
+      final childId = params.childId ?? selectedChildGetter()?.id ?? '';
+      return RecitationController(
+        repo,
+        params.copyWith(childId: childId),
+        selectedChildGetter,
+      );
+    });
 
 class RecitationParams {
   const RecitationParams({
@@ -45,11 +48,7 @@ class RecitationParams {
   final int surahId;
   final int ayahId;
 
-  RecitationParams copyWith({
-    String? childId,
-    int? surahId,
-    int? ayahId,
-  }) {
+  RecitationParams copyWith({String? childId, int? surahId, int? ayahId}) {
     return RecitationParams(
       childId: childId ?? this.childId,
       surahId: surahId ?? this.surahId,
@@ -76,21 +75,23 @@ typedef SelectedChildGetter = ChildProfile? Function();
 
 class RecitationController extends StateNotifier<RecitationState> {
   RecitationController(this._repo, RecitationParams params, this._selectedChild)
-      : _recorder = AudioRecorder(),
-        _player = AudioPlayer(),
-        super(
-          RecitationState(
-            childId: params.childId ?? '',
-            surahId: params.surahId,
-            ayahId: params.ayahId,
-          ),
-        );
+    : _recorder = AudioRecorder(),
+      _player = AudioPlayer(),
+      super(
+        RecitationState(
+          childId: params.childId ?? '',
+          surahId: params.surahId,
+          ayahId: params.ayahId,
+        ),
+      );
 
   final RecitationRepository _repo;
   final AudioRecorder _recorder;
   final AudioPlayer _player;
   final SelectedChildGetter _selectedChild;
   static const String _logTag = '[RecitationSubmit]';
+  bool _recordingTransitionInFlight = false;
+  bool _playbackInFlight = false;
 
   Future<bool> ensureMicPermission({bool requestIfNeeded = true}) async {
     final status = await Permission.microphone.status;
@@ -129,6 +130,9 @@ class RecitationController extends StateNotifier<RecitationState> {
     if (state.isBusy) {
       return;
     }
+    if (_recordingTransitionInFlight) {
+      return;
+    }
 
     final hasPermission = await ensureMicPermission();
     if (!hasPermission) {
@@ -140,20 +144,35 @@ class RecitationController extends StateNotifier<RecitationState> {
       return;
     }
 
-    final dir = await getTemporaryDirectory();
-    final filePath = '${dir.path}/recitation_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    _recordingTransitionInFlight = true;
+    try {
+      final dir = await getTemporaryDirectory();
+      final filePath =
+          '${dir.path}/recitation_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
-      path: filePath,
-    );
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: filePath,
+      );
 
-    state = state.copyWith(
-      stage: RecitationStage.recording,
-      localPath: filePath,
-      durationLabel: '0:00',
-      clearError: true,
-    );
+      state = state.copyWith(
+        stage: RecitationStage.recording,
+        localPath: filePath,
+        durationLabel: '0:00',
+        clearLessonFlow: true,
+        clearNextAyahId: true,
+        clearNextGate: true,
+        clearError: true,
+      );
+    } catch (error) {
+      debugPrint('$_logTag startRecording failed: $error');
+      state = state.copyWith(
+        stage: RecitationStage.idle,
+        errorMessage: 'Unable to start recording. Please try again.',
+      );
+    } finally {
+      _recordingTransitionInFlight = false;
+    }
   }
 
   void setIdle() {
@@ -161,29 +180,59 @@ class RecitationController extends StateNotifier<RecitationState> {
   }
 
   Future<void> stopRecording() async {
-    final path = await _recorder.stop();
-    if (path == null) {
+    if (_recordingTransitionInFlight) {
+      return;
+    }
+
+    _recordingTransitionInFlight = true;
+    try {
+      final path = await _recorder.stop();
+      if (path == null) {
+        state = state.copyWith(
+          stage: RecitationStage.idle,
+          errorMessage: 'Recording failed. Try again.',
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        stage: RecitationStage.review,
+        localPath: path,
+        durationLabel: '0:06',
+        clearError: true,
+      );
+    } catch (error) {
+      debugPrint('$_logTag stopRecording failed: $error');
       state = state.copyWith(
         stage: RecitationStage.idle,
         errorMessage: 'Recording failed. Try again.',
       );
-      return;
+    } finally {
+      _recordingTransitionInFlight = false;
     }
-
-    state = state.copyWith(
-      stage: RecitationStage.review,
-      localPath: path,
-      durationLabel: '0:06',
-      clearError: true,
-    );
   }
 
   Future<void> playRecording() async {
-    if (state.localPath == null) {
+    final localPath = state.localPath;
+    if (localPath == null || localPath.isEmpty) {
       return;
     }
-    await _player.setFilePath(state.localPath!);
-    await _player.play();
+    if (_playbackInFlight) {
+      return;
+    }
+
+    _playbackInFlight = true;
+    try {
+      await _player.setFilePath(localPath);
+      await _player.play();
+    } catch (error) {
+      debugPrint('$_logTag playRecording failed: $error');
+      state = state.copyWith(
+        errorMessage: 'Unable to play recording. Please record again.',
+      );
+    } finally {
+      _playbackInFlight = false;
+    }
   }
 
   Future<void> submitRecording() async {
@@ -191,29 +240,33 @@ class RecitationController extends StateNotifier<RecitationState> {
       state = state.copyWith(errorMessage: 'Record your recitation first.');
       return;
     }
-    final effectiveChildId = state.childId.isNotEmpty ? state.childId : _selectedChild()?.id ?? '';
+    final effectiveChildId = state.childId.isNotEmpty
+        ? state.childId
+        : _selectedChild()?.id ?? '';
     if (effectiveChildId.isEmpty) {
-      state = state.copyWith(errorMessage: 'Select a child profile to continue.');
+      state = state.copyWith(
+        errorMessage: 'Select a child profile to continue.',
+      );
       return;
     }
 
-    state = state.copyWith(stage: RecitationStage.uploading, isBusy: true, clearError: true);
+    state = state.copyWith(
+      stage: RecitationStage.uploading,
+      isBusy: true,
+      clearError: true,
+    );
 
     try {
       final client = Supabase.instance.client;
-      final session = client.auth.currentSession;
+      final session = await _ensureActiveSession(client);
       if (session == null) {
-        debugPrint('$_logTag No session. childId=${state.childId} surah=${state.surahId} ayah=${state.ayahId}');
+        debugPrint(
+          '$_logTag No session. childId=${state.childId} surah=${state.surahId} ayah=${state.ayahId}',
+        );
         throw const AuthException('Session expired. Please sign in again.');
       }
       _logSessionState(session);
-      final refreshed = await client.auth.refreshSession();
-      if (refreshed.session == null) {
-        await client.auth.signOut();
-        debugPrint('$_logTag Refresh failed. Forcing sign out.');
-        throw const AuthException('Session expired. Please sign in again.');
-      }
-      _logAccessTokenClaims(refreshed.session?.accessToken, label: 'refreshed');
+      _logAccessTokenClaims(session.accessToken, label: 'active');
 
       final storagePath = _repo.buildStoragePath(
         surahId: state.surahId,
@@ -221,7 +274,10 @@ class RecitationController extends StateNotifier<RecitationState> {
       );
 
       // Upload before scoring so the server can read the file.
-      await _repo.uploadRecitation(localPath: state.localPath!, storagePath: storagePath);
+      await _repo.uploadRecitation(
+        localPath: state.localPath!,
+        storagePath: storagePath,
+      );
 
       final ageYears = _resolveChildAgeYears();
       final meta = <String, dynamic>{
@@ -249,28 +305,49 @@ class RecitationController extends StateNotifier<RecitationState> {
 
       final passed = payload['passed'] == true;
       final mustReplay = payload['mustReplayLearnStep'] == true;
-      final nextGate = payload['nextGate'] as String?;
-      final rewardEvent = _buildRewardEvent(payload, nextGate: nextGate);
+      final lessonReady = payload['lessonReadyForComprehension'] == true;
+      final lessonQuestions = lessonReady
+          ? lessonQuestionsForAyah(surahId: state.surahId, ayahId: state.ayahId)
+          : const <AyahLessonQuestion>[];
+
+      if (passed && lessonReady && lessonQuestions.length >= 2) {
+        state = state.copyWith(
+          stage: RecitationStage.comprehension,
+          score: (payload['score'] as num?)?.toInt(),
+          passesRemaining: (payload['passesRemaining'] as num?)?.toInt(),
+          attemptsLeftToday: (payload['attemptsLeftToday'] as num?)?.toInt(),
+          mustReplayLearnStep: mustReplay,
+          showDetailedFeedback: payload['showDetailedFeedback'] == true,
+          shouldBlurVerse: payload['shouldBlurVerse'] == true,
+          lessonQuestions: lessonQuestions,
+          lessonQuestionIndex: 0,
+          lessonSelections: const {},
+          clearNextAyahId: true,
+          clearNextGate: true,
+          lastResultMessage: 'Recitation mastered. Continue to comprehension.',
+          isBusy: false,
+        );
+        return;
+      }
 
       state = state.copyWith(
-        stage: nextGate != null
-            ? RecitationStage.gateToQuiz
-            : mustReplay
-                ? RecitationStage.interventionRequired
-                : passed
-                    ? RecitationStage.feedbackSuccess
-                    : RecitationStage.feedbackFail,
+        stage: mustReplay
+            ? RecitationStage.interventionRequired
+            : passed
+            ? RecitationStage.feedbackSuccess
+            : RecitationStage.feedbackFail,
         score: (payload['score'] as num?)?.toInt(),
         passesRemaining: (payload['passesRemaining'] as num?)?.toInt(),
         attemptsLeftToday: (payload['attemptsLeftToday'] as num?)?.toInt(),
         mustReplayLearnStep: mustReplay,
         showDetailedFeedback: payload['showDetailedFeedback'] == true,
         shouldBlurVerse: payload['shouldBlurVerse'] == true,
-        nextGate: nextGate,
+        clearLessonFlow: true,
+        clearNextAyahId: true,
+        clearNextGate: true,
         lastResultMessage: payload['passed'] == true
             ? 'Nice work!'
             : 'Let\'s try again.',
-        rewardEvent: rewardEvent,
         isBusy: false,
       );
     } on FileSystemException catch (_) {
@@ -280,7 +357,9 @@ class RecitationController extends StateNotifier<RecitationState> {
         errorMessage: 'Audio file missing. Please record again.',
       );
     } on FunctionException catch (error) {
-      debugPrint('$_logTag FunctionException status=${error.status} details=${error.details}');
+      debugPrint(
+        '$_logTag FunctionException status=${error.status} details=${error.details}',
+      );
       final message = error.status == 401
           ? 'Session invalid. Please sign out and sign in again.'
           : error.toString();
@@ -300,6 +379,99 @@ class RecitationController extends StateNotifier<RecitationState> {
       debugPrint('$_logTag Unexpected error: $error');
       state = state.copyWith(
         stage: RecitationStage.review,
+        isBusy: false,
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  void selectLessonOption(String questionId, String optionId) {
+    if (!state.isComprehension) {
+      return;
+    }
+    final nextSelections = Map<String, String>.from(state.lessonSelections);
+    nextSelections[questionId] = optionId;
+    state = state.copyWith(lessonSelections: nextSelections, clearError: true);
+  }
+
+  bool isCurrentLessonAnswerCorrect() {
+    final question = state.currentLessonQuestion;
+    if (question == null) {
+      return false;
+    }
+    final selected = state.lessonSelections[question.id];
+    return selected == question.correctOptionId;
+  }
+
+  String? selectedLessonOptionFor(String questionId) {
+    return state.lessonSelections[questionId];
+  }
+
+  bool isLastLessonQuestion() {
+    return state.lessonQuestionIndex >= state.lessonQuestions.length - 1;
+  }
+
+  void retryCurrentLessonQuestion({bool clearSelection = false}) {
+    final question = state.currentLessonQuestion;
+    if (question == null || !clearSelection) {
+      return;
+    }
+    final nextSelections = Map<String, String>.from(state.lessonSelections);
+    nextSelections.remove(question.id);
+    state = state.copyWith(lessonSelections: nextSelections, clearError: true);
+  }
+
+  void nextLessonQuestion() {
+    if (!state.isComprehension) {
+      return;
+    }
+    final nextIndex = state.lessonQuestionIndex + 1;
+    if (nextIndex >= state.lessonQuestions.length) {
+      return;
+    }
+    state = state.copyWith(lessonQuestionIndex: nextIndex, clearError: true);
+  }
+
+  Future<void> completeAyahLesson() async {
+    if (!state.isComprehension || state.lessonQuestions.isEmpty) {
+      return;
+    }
+
+    final effectiveChildId = state.childId.isNotEmpty
+        ? state.childId
+        : _selectedChild()?.id ?? '';
+    if (effectiveChildId.isEmpty) {
+      state = state.copyWith(
+        errorMessage: 'Select a child profile to continue.',
+      );
+      return;
+    }
+
+    state = state.copyWith(isBusy: true, clearError: true);
+
+    try {
+      final payload = await _repo.completeAyahLesson(
+        childId: effectiveChildId,
+        surahId: state.surahId,
+        ayahId: state.ayahId,
+      );
+
+      state = state.copyWith(
+        stage: RecitationStage.lessonCompleted,
+        isBusy: false,
+        nextAyahId: (payload['nextAyahId'] as num?)?.toInt(),
+        nextGate: payload['nextGate'] as String?,
+        lastResultMessage: 'Lesson complete! Hasanat earned.',
+      );
+    } on FunctionException catch (error) {
+      state = state.copyWith(
+        stage: RecitationStage.comprehension,
+        isBusy: false,
+        errorMessage: error.toString(),
+      );
+    } catch (error) {
+      state = state.copyWith(
+        stage: RecitationStage.comprehension,
         isBusy: false,
         errorMessage: error.toString(),
       );
@@ -330,7 +502,9 @@ class RecitationController extends StateNotifier<RecitationState> {
       final exp = payload['exp'];
       final iat = payload['iat'];
       final sub = payload['sub'];
-      debugPrint('$_logTag token($label) iss=$iss aud=$aud exp=$exp iat=$iat sub=${_maskId(sub?.toString())}');
+      debugPrint(
+        '$_logTag token($label) iss=$iss aud=$aud exp=$exp iat=$iat sub=${_maskId(sub?.toString())}',
+      );
     } catch (error) {
       debugPrint('$_logTag token($label) decodeError=$error');
     }
@@ -350,19 +524,6 @@ class RecitationController extends StateNotifier<RecitationState> {
     return '${value.substring(0, 3)}...${value.substring(value.length - 3)}';
   }
 
-  RewardEvent? _buildRewardEvent(Map<String, dynamic> payload, {String? nextGate}) {
-    final mastered = payload['ayahMasteredNow'] == true;
-    if (!mastered || nextGate != null) {
-      return null;
-    }
-    return RewardEvent(
-      type: RewardType.hasanat,
-      title: 'Ayah mastered!',
-      message: 'You earned hasanat for this verse.',
-      score: (payload['score'] as num?)?.toInt(),
-    );
-  }
-
   void clearReward() {
     state = state.copyWith(clearReward: true);
   }
@@ -377,11 +538,41 @@ class RecitationController extends StateNotifier<RecitationState> {
     return age > 0 ? age : null;
   }
 
+  Future<Session?> _ensureActiveSession(SupabaseClient client) async {
+    final session = client.auth.currentSession;
+    if (session == null) {
+      return null;
+    }
+
+    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = session.expiresAt;
+    final shouldRefresh = expiresAt == null || expiresAt <= (nowSeconds + 90);
+
+    if (!shouldRefresh) {
+      return session;
+    }
+
+    try {
+      final refreshed = await client.auth.refreshSession();
+      if (refreshed.session != null) {
+        return refreshed.session;
+      }
+    } catch (error) {
+      debugPrint('$_logTag refreshSession failed: $error');
+    }
+
+    if (expiresAt != null && expiresAt > nowSeconds) {
+      return session;
+    }
+    return null;
+  }
+
   void _logSessionState(Session session) {
     final userId = session.user.id;
     final expiresAt = session.expiresAt;
     final aud = session.user.aud;
-    final hasRefresh = session.refreshToken != null && session.refreshToken!.isNotEmpty;
+    final hasRefresh =
+        session.refreshToken != null && session.refreshToken!.isNotEmpty;
     debugPrint(
       '$_logTag session user=${_mask(userId)} aud=$aud expiresAt=$expiresAt refresh=$hasRefresh',
     );
