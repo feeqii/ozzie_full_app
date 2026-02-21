@@ -16,7 +16,6 @@ import '../../features/child/screens/ayah_learn_screen.dart';
 import '../../features/child/screens/surah_intro_screen.dart';
 import '../../features/child/screens/surah_journey_screen.dart';
 import '../../features/child/screens/surah_overview_screen.dart';
-import '../../features/gallery/design_system_gallery_screen.dart';
 import '../../features/map/screens/galaxy_map_screen.dart';
 import '../../features/map/screens/planet_map_screen.dart';
 import '../../features/parent/screens/parent_dashboard_screen.dart';
@@ -57,7 +56,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final session = sessionAsync.asData?.value;
 
       final inAuthFlow = state.uri.path.startsWith('/auth');
-      final inDesignFlow = state.uri.path == '/';
       final inParentFlow = state.uri.path.startsWith('/parent');
       final inParentPinFlow = state.uri.path.startsWith('/parent/pin/');
       final inChildFlow = state.uri.path.startsWith('/child');
@@ -118,7 +116,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/parent/child/select';
       }
 
-      if (inAuthFlow || inDesignFlow) {
+      if (inAuthFlow) {
         return '/child/home';
       }
 
@@ -133,10 +131,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const DesignSystemGalleryScreen(),
-      ),
       GoRoute(
         path: '/auth/onboarding',
         builder: (context, state) => const AuthOnboardingScreen(),
