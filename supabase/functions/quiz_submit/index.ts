@@ -4,7 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 type QuizAnswerItem = {
   question_id?: string;
   selected_option_id?: string | null;
-  // Deprecated: client-supplied correctness is no longer trusted.
+  // App-graded correctness for this answer. Backend records and gates flow.
   correct?: boolean;
 };
 
@@ -54,66 +54,20 @@ const toDateString = (date: Date) => date.toISOString().slice(0, 10);
 const startOfTomorrowUtc = (date: Date) =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
 
-const answerKeys: Record<number, Record<QuizRequest["quiz_type"], Record<string, string>>> = {
-  1: {
-    mini_1: {
-      // s1m1q1 is a recitation prompt (ungraded until full recitation scoring is implemented).
-      s1m1q2: "a",
-    },
-    mini_2: {
-      s1m2q1: "a",
-      s1m2q2: "b",
-    },
-    final: {
-      // s1fq1 is a recitation prompt (ungraded).
-      s1fq2: "a",
-    },
-  },
-  112: {
-    mini_1: {
-      // s112m1q1 is a recitation prompt (ungraded).
-      s112m1q2: "a",
-    },
-    mini_2: {
-      s112m2q1: "a",
-      s112m2q2: "a",
-    },
-    final: {
-      // s112fq1 is a recitation prompt (ungraded).
-      s112fq2: "a",
-    },
-  },
-};
-
-const gradeQuiz = (surahId: number, quizType: QuizRequest["quiz_type"], answers: QuizAnswers): QuizGrade => {
-  const key = answerKeys[surahId]?.[quizType] ?? null;
-  if (!key) {
-    return {
-      score: 0,
-      passed: false,
-      details: { total: 0, correct: 0, reason: "NO_ANSWER_KEY" },
-    };
-  }
-
+const gradeQuiz = (quizType: QuizRequest["quiz_type"], answers: QuizAnswers): QuizGrade => {
   const items = Array.isArray(answers.items) ? (answers.items as QuizAnswerItem[]) : [];
-  const byQuestionId = new Map<string, QuizAnswerItem>();
-  for (const item of items) {
-    if (typeof item?.question_id === "string") {
-      byQuestionId.set(item.question_id, item);
-    }
-  }
 
   let total = 0;
   let correct = 0;
-  const missing: string[] = [];
-  for (const [questionId, correctOptionId] of Object.entries(key)) {
-    total += 1;
-    const item = byQuestionId.get(questionId);
-    if (!item) {
-      missing.push(questionId);
+  for (const item of items) {
+    if (typeof item?.question_id !== "string") {
       continue;
     }
-    if (item.selected_option_id === correctOptionId) {
+    if (typeof item.selected_option_id !== "string" || item.selected_option_id.trim().length === 0) {
+      continue;
+    }
+    total += 1;
+    if (item.correct === true) {
       correct += 1;
     }
   }
@@ -125,7 +79,7 @@ const gradeQuiz = (surahId: number, quizType: QuizRequest["quiz_type"], answers:
   return {
     score,
     passed,
-    details: { total, correct, missing, threshold },
+    details: { total, correct, threshold },
   };
 };
 
@@ -335,10 +289,7 @@ Deno.serve(async (req) => {
       .eq("surah_id", surah_id)
       .eq("quiz_type", quiz_type);
 
-    const grade = gradeQuiz(surah_id, quiz_type, answers as QuizAnswers);
-    if (grade.details?.reason === "NO_ANSWER_KEY") {
-      return jsonResponse(409, { error: "Quiz content not available yet" });
-    }
+    const grade = gradeQuiz(quiz_type, answers as QuizAnswers);
 
     // Lockout rules (PDF): checkpoints allow 2 failures/day; final locks out until tomorrow on any failure.
     const maxFailures = quiz_type === "final" ? 1 : 2;

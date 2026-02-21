@@ -662,6 +662,16 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     });
 
+    if (!nextGate && passed) {
+      if (updatedStage === "MINI_QUIZ_1") {
+        nextGate = "MINI_QUIZ_1";
+      } else if (updatedStage === "MINI_QUIZ_2") {
+        nextGate = "MINI_QUIZ_2";
+      } else if (updatedStage === "FINAL_EXAM") {
+        nextGate = "FINAL_EXAM";
+      }
+    }
+
     const { data: streakRow } = await supabaseAdmin
       .from("streaks")
       .select("child_id, current_streak, best_streak, last_practice_date")

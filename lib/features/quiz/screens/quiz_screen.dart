@@ -137,7 +137,7 @@ class QuizScreen extends ConsumerWidget {
                 primaryLabel: 'Try again',
                 onPrimary: () {
                   context.pop();
-                  notifier.retryCurrentQuestion();
+                  notifier.retryCurrentQuestion(clearSelection: true);
                 },
               ),
             );
@@ -256,7 +256,7 @@ class QuizScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 LessonNavBar(
-                  title: '${surah.name} - verse 1',
+                  title: '${surah.name} - ${quizType.label}',
                   leadingIcon: Icons.close_rounded,
                   onLeadingTap: () =>
                       context.go('/child/surah/$surahId/journey'),

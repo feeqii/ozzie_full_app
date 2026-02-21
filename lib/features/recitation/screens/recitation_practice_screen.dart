@@ -116,9 +116,20 @@ class _RecitationPracticeScreenState
         _showAttemptResultSheet(
           state: next,
           passed: passed,
-          onRetry: () {
+          onPrimary: () {
             context.pop();
-            notifier.setRecording();
+            if (!passed) {
+              notifier.setRecording();
+              return;
+            }
+
+            final hasPassesRemaining = (next.passesRemaining ?? 0) > 0;
+            if (hasPassesRemaining) {
+              notifier.setRecording();
+              return;
+            }
+
+            context.go('/child/surah/$surahId/journey');
           },
         );
       }
@@ -357,10 +368,11 @@ class _RecitationPracticeScreenState
   void _showAttemptResultSheet({
     required RecitationState state,
     required bool passed,
-    required VoidCallback onRetry,
+    required VoidCallback onPrimary,
   }) {
     final attemptsLeft = state.attemptsLeftToday;
     final detailed = state.showDetailedFeedback;
+    final hasPassesRemaining = (state.passesRemaining ?? 0) > 0;
 
     if (passed) {
       showLessonFeedbackSheet(
@@ -371,8 +383,8 @@ class _RecitationPracticeScreenState
           emphasis: state.passesRemaining == null
               ? null
               : '${state.passesRemaining} passes left to mastery',
-          primaryLabel: 'Next',
-          onPrimary: onRetry,
+          primaryLabel: hasPassesRemaining ? 'Recite again' : 'Continue',
+          onPrimary: onPrimary,
         ),
       );
       return;
@@ -392,7 +404,7 @@ class _RecitationPracticeScreenState
         detailLabel: showCorrectiveHint ? 'Time elapsed' : null,
         detailValue: showCorrectiveHint ? state.durationLabel : null,
         primaryLabel: 'Try again',
-        onPrimary: onRetry,
+        onPrimary: onPrimary,
       ),
     );
   }

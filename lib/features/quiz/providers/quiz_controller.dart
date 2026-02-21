@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -67,7 +65,6 @@ class QuizController extends StateNotifier<QuizState> {
       );
 
   final QuizRepository _repo;
-  final Random _random = Random();
 
   void selectOption(String questionId, String optionId) {
     state = state.copyWith(
@@ -144,12 +141,10 @@ class QuizController extends StateNotifier<QuizState> {
   ) {
     final selected = state.selections[question.id];
     if (!state.showFeedback) {
-      if (selected == null) {
-        return QuizOptionState.normal;
+      if (selected == option.id) {
+        return QuizOptionState.selected;
       }
-      return selected == option.id
-          ? QuizOptionState.selected
-          : QuizOptionState.disabled;
+      return QuizOptionState.normal;
     }
 
     if (question.correctOptionId == null) {
@@ -184,9 +179,7 @@ class QuizController extends StateNotifier<QuizState> {
     final isCorrect = isCorrectSelection(question);
     final feedbackStyle = isCorrect
         ? null
-        : (_random.nextBool()
-              ? QuizWrongFeedbackStyle.detailed
-              : QuizWrongFeedbackStyle.motivational);
+        : QuizWrongFeedbackStyle.motivational;
     state = state.copyWith(
       showFeedback: true,
       wrongFeedbackStyle: feedbackStyle,
@@ -206,17 +199,22 @@ class QuizController extends StateNotifier<QuizState> {
     state = state.copyWith(isSubmitting: true, clearError: true);
 
     try {
-      final answers = state.questions.map((question) {
-        final selected = state.selections[question.id];
-        final isCorrect =
-            question.correctOptionId != null &&
-            selected == question.correctOptionId;
-        return QuizAnswerItem(
-          questionId: question.id,
-          selectedOptionId: selected,
-          isCorrect: isCorrect,
-        );
-      }).toList();
+      final answers = state.questions
+          .where(
+            (question) =>
+                question.hasOptions && question.correctOptionId != null,
+          )
+          .map((question) {
+            final selected = state.selections[question.id];
+            final isCorrect =
+                selected != null && selected == question.correctOptionId;
+            return QuizAnswerItem(
+              questionId: question.id,
+              selectedOptionId: selected,
+              isCorrect: isCorrect,
+            );
+          })
+          .toList();
 
       final payload = await _repo.submitQuiz(
         childId: state.childId,
@@ -317,25 +315,13 @@ class QuizController extends StateNotifier<QuizState> {
           id: 's1m1q3',
           type: QuizQuestionType.comprehension,
           title: 'Choose the meaning',
-          prompt: 'Which line asks Allah for guidance?',
+          prompt: 'Who is praised in “Alhamdu lillahi Rabbil ʿālamīn”?',
           context: 'Keep practicing comprehension while memorizing.',
           options: [
-            QuizQuestionOption(
-              id: 'a',
-              label: 'Guide us to the straight path.',
-            ),
-            QuizQuestionOption(
-              id: 'b',
-              label: 'Master of the Day of Judgment.',
-            ),
-            QuizQuestionOption(
-              id: 'c',
-              label: 'In the name of Allah, the Most Merciful.',
-            ),
-            QuizQuestionOption(
-              id: 'd',
-              label: 'You alone we worship and ask for help.',
-            ),
+            QuizQuestionOption(id: 'a', label: 'Allah, Lord of all worlds.'),
+            QuizQuestionOption(id: 'b', label: 'Only the angels.'),
+            QuizQuestionOption(id: 'c', label: 'Only the prophets.'),
+            QuizQuestionOption(id: 'd', label: 'Only believers.'),
           ],
           correctOptionId: 'a',
         ),
@@ -355,32 +341,32 @@ class QuizController extends StateNotifier<QuizState> {
           id: 's1m2q1',
           type: QuizQuestionType.completeVerse,
           title: 'Complete the verse',
-          prompt: 'Yawma yaqūmu wal-malāʼikatu ṣaffan',
+          prompt: 'Māliki ____',
           context: 'Al-Fatihah — Verse 4',
           hasAudio: true,
           options: [
             QuizQuestionOption(
               id: 'a',
-              label: 'ar-rūḥu',
-              subtitle: 'الرُّوحُ',
+              label: 'yawmid-dīn',
+              subtitle: 'يَوْمِ الدِّينِ',
               audioRef: 's1m2q1_a',
             ),
             QuizQuestionOption(
               id: 'b',
-              label: 'Yawma yaqūmu',
-              subtitle: 'يَوْمَ يَقُومُ',
+              label: 'nastaʿīn',
+              subtitle: 'نَسْتَعِينُ',
               audioRef: 's1m2q1_b',
             ),
             QuizQuestionOption(
               id: 'c',
-              label: 'Yawma yaqūmu',
-              subtitle: 'يَوْمَ يَقُومُ',
+              label: 'naʿbudu',
+              subtitle: 'نَعْبُدُ',
               audioRef: 's1m2q1_c',
             ),
             QuizQuestionOption(
               id: 'd',
-              label: 'Yawma yaqūmu',
-              subtitle: 'يَوْمَ يَقُومُ',
+              label: 'al-ʿālamīn',
+              subtitle: 'الْعَالَمِينَ',
               audioRef: 's1m2q1_d',
             ),
           ],
@@ -388,47 +374,55 @@ class QuizController extends StateNotifier<QuizState> {
         ),
         QuizQuestion(
           id: 's1m2q2',
-          type: QuizQuestionType.wordOrdering,
-          title: 'Word ordering',
-          prompt: 'Arrange the words to complete the verse meaning.',
-          context: 'You alone we worship, and You alone we ask for help.',
+          type: QuizQuestionType.readingComprehension,
+          title: 'Answer the following question',
+          prompt: 'What does “Māliki yawmid-dīn” mean?',
           options: [
-            QuizQuestionOption(id: 'a', label: 'You alone we worship'),
-            QuizQuestionOption(id: 'b', label: 'and You alone we ask for help'),
-            QuizQuestionOption(id: 'c', label: 'Guide us to the straight path'),
-            QuizQuestionOption(id: 'd', label: 'Master of the Day of Judgment'),
+            QuizQuestionOption(
+              id: 'a',
+              label: 'Master of the Day of Judgment.',
+            ),
+            QuizQuestionOption(
+              id: 'b',
+              label: 'Guide us to the straight path.',
+            ),
+            QuizQuestionOption(id: 'c', label: 'Lord of all worlds.'),
+            QuizQuestionOption(
+              id: 'd',
+              label: 'You alone we worship and ask for help.',
+            ),
           ],
-          correctOptionId: 'b',
+          correctOptionId: 'a',
         ),
         QuizQuestion(
           id: 's1m2q3',
           type: QuizQuestionType.readingComprehension,
           title: 'Answer the following question',
-          prompt: 'Who will be judged on the Day of Judgment?',
+          prompt: 'What does “Ar-Rahmanir Rahim” remind us about Allah?',
           hasAudio: true,
           options: [
             QuizQuestionOption(
               id: 'a',
-              label: 'All people will be judged for their deeds.',
+              label: 'Allah is Most Gracious and Most Merciful.',
               audioRef: 's1m2q3_a',
             ),
             QuizQuestionOption(
               id: 'b',
-              label: 'Only the angels will be judged.',
+              label: 'Allah is Master of the Day of Judgment.',
               audioRef: 's1m2q3_b',
             ),
             QuizQuestionOption(
               id: 'c',
-              label: 'Only the believers will be judged.',
+              label: 'Allah is Lord of all worlds.',
               audioRef: 's1m2q3_c',
             ),
             QuizQuestionOption(
               id: 'd',
-              label: 'The animals will be judged.',
+              label: 'We begin by saying Bismillah.',
               audioRef: 's1m2q3_d',
             ),
           ],
-          correctOptionId: 'c',
+          correctOptionId: 'a',
         ),
       ];
     }
